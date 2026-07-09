@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+@theme {
+  /* Establece Poppins como la fuente principal por defecto (font-sans) */
+  --font-sans: "Poppins", sans-serif;
+  
+  /* Crea una clase personalizada (font-roboto) para los títulos y subtítulos */
+  --font-roboto: "Roboto", sans-serif;
+}
+
+/* Regla base de seguridad */
+body {
+  @apply font-sans text-black bg-white antialiased;
+}
