@@ -18,10 +18,10 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
     );
   }
 
-  if (!user) {
-    console.log("🛡️ GUARDIA: No hay usuario. Mandando al Login.");
-    return <Navigate to="/login" replace />;
-  }
+    if (!user) {
+        console.log("🛡️ GUARDIA: No hay usuario. Mandando al Welcome.");
+        return <Navigate to="/welcome" replace />; 
+      }
 
   // SI EL ROL ES NULL, FRENAMOS EN SECO PARA EVITAR EL BUCLE
   if (!role) {
