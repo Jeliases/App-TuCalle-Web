@@ -1,4 +1,4 @@
-import { Home, BadgeDollarSign, ShoppingBag, Heart, User, Star, MapPin as LocationOn, CheckCircle, AlertTriangle, BookOpen, BarChart } from "lucide-react";
+import { Home, BadgeDollarSign, ShoppingBag, Heart, User, Star, CheckCircle, AlertTriangle, BookOpen, BarChart, ClipboardSignature } from "lucide-react";
 import type { UserRole } from "../../types/models";
 
 export interface NavItem {
@@ -12,10 +12,9 @@ export function getNavItems(role: UserRole | null): NavItem[] {
     case "QUALITY":
       return [
         { text: "Home", icon: <Home className="w-5 h-5" />, path: "/dashboard/quality" },
-        { text: "Reseñas", icon: <Star className="w-5 h-5" />, path: "/dashboard/quality/resenas" },
-        { text: "Huariques", icon: <LocationOn className="w-5 h-5" />, path: "/dashboard/quality/huariques" },
-        { text: "Favoritos", icon: <Heart className="w-5 h-5" />, path: "/dashboard/quality/favoritos" },
-        { text: "Perfil", icon: <User className="w-5 h-5" />, path: "/dashboard/quality/perfil" },
+        { text: "Evaluar Huarique", icon: <ClipboardSignature className="w-5 h-5" />, path: "/dashboard/calificar/nueva" },
+        { text: "Mis Huariques", icon: <Heart className="w-5 h-5" />, path: "/dashboard/quality" },
+        { text: "Mi Perfil", icon: <User className="w-5 h-5" />, path: "/dashboard/quality/perfil" },
       ];
     case "ADMIN":
       return [

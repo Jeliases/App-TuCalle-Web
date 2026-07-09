@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { Loader2 } from "lucide-react"; // 🔥 AÑADIDO: El ícono de carga
+import { Loader2 } from "lucide-react"; 
 
 // Layouts
 import AuthLayout from "../components/layout/AuthLayout";
@@ -25,10 +25,10 @@ import QualityEvaluation from "../pages/dashboard/QualityEvaluation";
 import StoreDetail from "../pages/dashboard/StoreDetail";
 
 function RootDispatcher() {
-  // 🔥 AÑADIDO: Sacamos 'loading' del contexto de autenticación
+  //  AÑADIDO: Sacamos 'loading' del contexto de autenticación
   const { user, role, loading } = useAuth();
 
-  // 🔥 SOLUCIÓN: Si Firebase está "pensando", frenamos la pantalla y esperamos.
+  //  SOLUCIÓN: Si Firebase está "pensando", frenamos la pantalla y esperamos.
   // Esto evita que te patee a /welcome por error.
   if (loading) {
     return (
@@ -82,7 +82,7 @@ export default function AppRouter() {
         <Route element={<ProtectedRoute allowedRoles={["QUALITY"]} />}>
           <Route path="/dashboard/quality" element={<MainLayout><QualityDashboard /></MainLayout>} />
           <Route path="/dashboard/quality/perfil" element={<MainLayout><QualityProfile /></MainLayout>} />
-          <Route path="/dashboard/calificar/:id" element={<MainLayout><QualityEvaluation /></MainLayout>} />
+          <Route path="/dashboard/calificar/nueva" element={<MainLayout><QualityEvaluation /></MainLayout>} />
           <Route path="/dashboard/quality/tienda/:id" element={<MainLayout><StoreDetail /></MainLayout>} />
         </Route>
 
