@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { Loader2 } from "lucide-react"; // 🔥 AÑADIDO: El ícono de carga
 
 // Layouts
 import AuthLayout from "../components/layout/AuthLayout";
@@ -23,9 +24,19 @@ import QualityProfile from "../pages/dashboard/QualityProfile";
 import QualityEvaluation from "../pages/dashboard/QualityEvaluation";
 import StoreDetail from "../pages/dashboard/StoreDetail";
 
-
 function RootDispatcher() {
-  const { user, role } = useAuth();
+  // 🔥 AÑADIDO: Sacamos 'loading' del contexto de autenticación
+  const { user, role, loading } = useAuth();
+
+  // 🔥 SOLUCIÓN: Si Firebase está "pensando", frenamos la pantalla y esperamos.
+  // Esto evita que te patee a /welcome por error.
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <Loader2 className="w-12 h-12 animate-spin text-[#D32F2F]" />
+      </div>
+    );
+  }
 
   // 1. Si NO hay usuario, lo mandamos a la portada bonita (Welcome)
   if (!user) return <Navigate to="/welcome" replace />;
