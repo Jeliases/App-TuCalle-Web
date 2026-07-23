@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "../../api/firebaseConfig";
-import { MapPin, Bell, Search, Flame, Soup, Utensils, Leaf, ClipboardSignature } from "lucide-react";
+import { Search, Flame, Soup, Utensils, Leaf, ClipboardSignature } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BannerCarousel from "../../components/layout/BannerCarousel";
 
@@ -40,7 +40,6 @@ export default function QualityDashboard() {
   const [tiendas, setTiendas] = useState<any[]>([]);
   const [platos, setPlatos] = useState<any[]>([]);
   const navigate = useNavigate();
-  const direccionActual = "San Juan de Lurigancho, Lima";
 
   useEffect(() => {
     const fetchData = async () => {
@@ -62,19 +61,9 @@ export default function QualityDashboard() {
   }, []);
 
   return (
-    <div className="w-full flex flex-col pt-4 bg-white pb-24">
+    // 🔥 Quitamos el pt-4 para que el Banner toque el Navbar
+    <div className="w-full flex flex-col bg-white pb-24">
       
-      {/* CABECERA (Ubicación y Campana) */}
-      <div className="px-5 flex justify-between items-center mb-5">
-        <div className="flex items-center gap-2">
-          <MapPin className="w-5 h-5 text-[#D32F2F]" />
-          <span className="font-roboto font-bold text-black text-base">{direccionActual}</span>
-        </div>
-        <button className="text-[#D32F2F] hover:bg-red-50 p-2 rounded-full transition-colors cursor-pointer">
-          <Bell className="w-6 h-6" />
-        </button>
-      </div>
-
       {/* BANNER DINÁMICO (Edge to Edge) */}
       <div className="mb-7">
         <BannerCarousel />
@@ -97,7 +86,9 @@ export default function QualityDashboard() {
 
       {/* TÍTULO Y BUSCADOR */}
       <div className="px-5 mb-8">
-        <h2 className="font-roboto font-black text-3xl text-black leading-tight mb-4">¿Qué se te antoja<br/>hoy?</h2>
+        <h2 className="font-roboto font-black text-[22px] md:text-3xl text-black leading-tight mb-4 whitespace-nowrap">
+          ¿Qué se te antoja hoy?
+        </h2>
         <div className="flex items-center w-full h-[50px] rounded-xl bg-[#F9F9F9] border border-[#E0E0E0] focus-within:border-[#D32F2F] px-4 transition-colors">
           <Search className="w-5 h-5 text-gray-400" />
           <input type="text" placeholder="Buscar huariques, platos..." className="w-full h-full bg-transparent outline-none text-sm px-3 font-poppins text-black placeholder-gray-400" />

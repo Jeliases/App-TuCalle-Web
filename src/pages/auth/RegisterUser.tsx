@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, Loader2 } from "lucide-react";
@@ -11,6 +11,11 @@ import { Link, useNavigate } from "react-router-dom";
 export default function RegisterUser() {
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const navigate = useNavigate();
+
+  // 🔥 Asegura que la pantalla empiece arriba
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   const {
     register,
@@ -31,14 +36,12 @@ export default function RegisterUser() {
 
   const aceptoTerminos = watch("aceptoTerminos");
 
-const onSubmit = async (data: any) => {
+  const onSubmit = async (data: any) => {
     setStatusMessage(null);
     try {
-      // 1. Creamos la cuenta en Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, data.email.trim(), data.password.trim());
       const user = userCredential.user;
 
-      // 2. Guardamos el perfil garantizado
       await setDoc(doc(db, "usuarios", user.uid), {
         uid: user.uid,
         nombre: data.nombre,
@@ -55,8 +58,6 @@ const onSubmit = async (data: any) => {
 
       setStatusMessage({ text: "¡Usuario registrado con éxito! Entrando...", type: "success" });
       
-      // 3. LA SOLUCIÓN: Obligamos al navegador a ir al panel de usuario
-      // Le damos 1 segundo de respiro para asegurar que Firebase guardó todo
       setTimeout(() => {
         window.location.href = "/dashboard/usuario";
       }, 1000);

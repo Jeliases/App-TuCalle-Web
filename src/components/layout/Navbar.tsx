@@ -6,18 +6,22 @@ import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { getNavItems } from "./navConfig";
 
-// Hacemos el prop opcional para que no te dé error en tu MainLayout
+// Importamos el motor del GPS
+import { useUserLocation } from "../../hooks/useUserLocation";
+
 interface NavbarProps {
   onMenuClick?: () => void;
 }
 
 export default function Navbar({ onMenuClick }: NavbarProps) {
+  // 🔥 El Hook hace todo el trabajo pesado del GPS por detrás
+  const { address, error } = useUserLocation();
+  
   const { userData, role } = useAuth();
   const navigate = useNavigate();
   
-  // 🔥 Estados independientes para los menús
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [isMenuOpen, setIsMenuOpen] = useState(false); // Estado para las 3 rayitas
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleLogout = () => signOut(auth);
   const navItems = getNavItems(role);
@@ -27,13 +31,11 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
   return (
     <>
       {/* ── MENÚ LATERAL DESPLEGABLE (DRAWER) ── */}
-      {/* Fondo oscuro */}
       <div 
         className={`fixed inset-0 bg-black/50 z-[60] transition-opacity duration-300 ${isMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`} 
         onClick={() => setIsMenuOpen(false)}
       />
       
-      {/* Panel blanco que entra desde la izquierda */}
       <div className={`fixed top-0 left-0 h-full w-[280px] bg-white z-[70] shadow-2xl transform transition-transform duration-300 flex flex-col ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex justify-between items-center p-5 border-b border-gray-100">
           <div className="font-roboto font-bold text-xl cursor-pointer" onClick={() => { setIsMenuOpen(false); navigate('/'); }}>
@@ -65,13 +67,11 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
         </div>
       </div>
 
-
       {/* ── NAVBAR PRINCIPAL SUPERIOR ── */}
       <nav className="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div className="h-16 flex items-center justify-between px-4 sm:px-8">
           
           <div className="flex items-center gap-4">
-            {/* 🔥 BOTÓN DE LAS 3 RAYITAS 🔥 */}
             <button 
               onClick={() => {
                 setIsMenuOpen(true);
@@ -86,10 +86,13 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
               <span className="text-black">Tu</span><span className="text-[#D32F2F]">Calle</span>
             </div>
             
+            {/* 🔥 UBICACIÓN DINÁMICA (Conectada al Hook) 🔥 */}
             <div className="hidden md:flex items-center gap-1 text-[#D32F2F] ml-4 cursor-pointer hover:bg-red-50 px-2 py-1 rounded-md transition-colors">
-              <MapPin className="w-4 h-4" />
-              <span className="text-sm font-medium font-poppins">San Juan de Lurigancho</span>
-              <ChevronDown className="w-4 h-4" />
+              <MapPin className="w-4 h-4 shrink-0" />
+              <span className="text-[13px] font-medium font-poppins truncate max-w-[280px]">
+                {error ? error : (address || "Ubicando...")}
+              </span>
+              <ChevronDown className="w-4 h-4 shrink-0" />
             </div>
           </div>
 
@@ -107,14 +110,11 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
           </div>
 
           <div className="flex items-center gap-3 relative">
-            
-            {/* CAMPANITA */}
             <button className="relative p-2 rounded-full hover:bg-gray-100 cursor-pointer transition-colors">
               <Bell className="w-5 h-5 text-gray-700" />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#D32F2F] rounded-full border border-white"></span>
             </button>
 
-            {/* PERFIL */}
             <button
               onClick={() => setShowProfileMenu(!showProfileMenu)}
               className="flex items-center gap-2 hover:bg-gray-100 p-1.5 rounded-full cursor-pointer transition-colors"

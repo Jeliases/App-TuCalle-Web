@@ -9,6 +9,7 @@ interface AuthState {
   role: UserRole | null;
   userData: any | null;
   loading: boolean;
+  refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState>({
@@ -16,6 +17,7 @@ const AuthContext = createContext<AuthState>({
   role: null,
   userData: null,
   loading: true,
+  refreshUserData: async () => {},
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
@@ -23,6 +25,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [role, setRole] = useState<UserRole | null>(null);
   const [userData, setUserData] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const refreshUserData = async () => {
+    if (!auth.currentUser) return;
+    const uid = auth.currentUser.uid;
+
+    try {
+      let data = null;
+      let currentRole = null;
+
+      let docSnap = await getDoc(doc(db, "usuarios", uid));
+      if (docSnap.exists()) {
+        data = docSnap.data();
+        currentRole = data.rol || "USUARIO";
+      } else {
+        docSnap = await getDoc(doc(db, "tiendas", uid));
+        if (docSnap.exists()) {
+          data = docSnap.data();
+          currentRole = data.rol || "TIENDA";
+        } else {
+          docSnap = await getDoc(doc(db, "qualities", uid));
+          if (docSnap.exists()) {
+            data = docSnap.data();
+            currentRole = data.rol || "QUALITY";
+          } else {
+            docSnap = await getDoc(doc(db, "admins", uid));
+            if (docSnap.exists()) {
+              data = docSnap.data();
+              currentRole = data.rol || "ADMIN";
+            }
+          }
+        }
+      }
+
+      if (data && currentRole) {
+        setRole(currentRole as UserRole);
+        setUserData(data);
+      }
+    } catch (error) {
+      console.error("🔴 ERROR al refrescar perfil:", error);
+    }
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -96,7 +139,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, role, userData, loading }}>
+    <AuthContext.Provider value={{ user, role, userData, loading, refreshUserData }}>
       {children}
     </AuthContext.Provider>
   );

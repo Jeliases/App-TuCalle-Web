@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, Loader2, MapPin, Camera } from "lucide-react"; // <-- Camera añadido
+import { ArrowLeft, Loader2, MapPin, Camera } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { registerStoreSchema } from "../../utils/validations";
 import { registerStoreUser } from "../../api/auth";
-import { uploadImage } from "../../api/storage"; // <-- Nuevo import
+import { uploadImage } from "../../api/storage";
 import MapSelector from "../../components/ui/MapSelector";
 
 const DIAS_SEMANA = ["L", "M", "X", "J", "V", "S", "D"];
@@ -19,7 +19,11 @@ export default function RegisterStore() {
   const [showMap, setShowMap] = useState(false);
   const [coordenadas, setCoordenadas] = useState({ lat: 0, lng: 0 });
 
-  // Estados para las imágenes (Archivo real para subir y URL local para previsualizar)
+  // 🔥 Asegura que la pantalla empiece arriba
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [portadaFile, setPortadaFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -38,7 +42,6 @@ export default function RegisterStore() {
     setDiasSeleccionados(prev => prev.includes(dia) ? prev.filter(d => d !== dia) : [...prev, dia]);
   };
 
-  // Función para capturar la imagen seleccionada y generar la vista previa
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>, type: "logo" | "portada") => {
     const file = e.target.files?.[0];
     if (file) {
@@ -64,14 +67,11 @@ export default function RegisterStore() {
     setStatusMessage({ text: "Subiendo fotos y registrando tienda, espera un momento...", type: "success" });
     
     try {
-      // 1. Subir imágenes primero (Exactamente como tu coroutine en Kotlin)
       const logoUrl = await uploadImage(logoFile, "tiendas/logos");
       const portadaUrl = await uploadImage(portadaFile, "tiendas/portadas");
 
-      // 2. Armar paquete de datos
       const storePayload = { ...data, latitud: coordenadas.lat, longitud: coordenadas.lng };
       
-      // 3. Registrar usuario con las URLs finales
       await registerStoreUser(storePayload, diasSeleccionados, logoUrl, portadaUrl);
       
       setStatusMessage({ text: "¡Tienda registrada con éxito!", type: "success" });
@@ -83,6 +83,7 @@ export default function RegisterStore() {
 
   return (
     <div className="flex flex-col w-full py-4">
+      {/* Botón Atrás */}
       <button onClick={() => navigate(-1)} className="mb-4 w-fit cursor-pointer text-black hover:text-gray-600 transition-colors">
         <ArrowLeft className="w-6 h-6" />
       </button>
@@ -97,9 +98,7 @@ export default function RegisterStore() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
         
-        {/* ================= INICIO BLOQUE DE IMÁGENES ================= */}
         <div className="w-full h-[220px] relative mb-4">
-          {/* Portada (Altura 160px) */}
           <label className="block w-full h-[160px] bg-[#F5F5F5] rounded-2xl overflow-hidden cursor-pointer group shadow-sm transition-all hover:bg-gray-200 relative">
             <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageChange(e, "portada")} />
             {portadaPreview ? (
@@ -112,7 +111,6 @@ export default function RegisterStore() {
             )}
           </label>
 
-          {/* Logo (Altura 110px, Circular, Centrado abajo) */}
           <label className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[110px] h-[110px] bg-[#EEEEEE] rounded-full border-4 border-white overflow-hidden cursor-pointer flex items-center justify-center group shadow-md z-10 hover:bg-gray-200 transition-colors">
             <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageChange(e, "logo")} />
             {logoPreview ? (
@@ -125,9 +123,6 @@ export default function RegisterStore() {
             )}
           </label>
         </div>
-        {/* ================= FIN BLOQUE DE IMÁGENES ================= */}
-
-        {/* ... AQUÍ VA EL RESTO DEL FORMULARIO EXACTAMENTE IGUAL ... */}
         
         <div className="flex flex-col gap-1">
           <label className="text-xs font-medium text-black">Nombre del local<span className="text-[#D32F2F]">*</span></label>

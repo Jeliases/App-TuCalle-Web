@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
 import { db } from "../../api/firebaseConfig";
-import { Flame, Soup, Utensils, Leaf } from "lucide-react";
+import { Flame, Soup, Utensils, Leaf, Navigation } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BannerCarousel from "../../components/layout/BannerCarousel";
 
@@ -45,36 +45,80 @@ function DraggableCarousel({ children }: { children: React.ReactNode }) {
   );
 }
 
+// 🔥 FÓRMULA DE HAVERSINE: Calcula la distancia en KM entre 2 coordenadas 🔥
+function calcularDistancia(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371; // Radio de la Tierra en km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Devuelve la distancia en KM
+}
+
 export default function UserDashboard() {
   const navigate = useNavigate();
   const [tiendas, setTiendas] = useState<any[]>([]);
   const [platos, setPlatos] = useState<any[]>([]);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
+  // 1. OBTENER DATOS Y UBICACIÓN
   useEffect(() => {
+    // Pedir GPS
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => {
+          console.warn("GPS denegado o no disponible", error);
+        }
+      );
+    }
+
+    // Traer Firebase
     const fetchData = async () => {
       try {
-        const qTiendas = query(collection(db, "tiendas"), where("estado", "==", "APROBADO"), orderBy("calificacionGeneral", "desc"), limit(10));
+        const qTiendas = query(collection(db, "tiendas"), where("estado", "==", "APROBADO"));
         const tiendasSnap = await getDocs(qTiendas);
-        setTiendas(tiendasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        let tiendasData = tiendasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
         const qPlatos = query(collection(db, "platos"), where("estado", "==", "APROBADO"), orderBy("calificacionPlato", "desc"), limit(10));
         const platosSnap = await getDocs(qPlatos);
         setPlatos(platosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+
+        setTiendas(tiendasData);
       } catch (error) {
         console.error("Error cargando el dashboard:", error);
       }
     };
+    
     fetchData();
   }, []);
-  
+
+  // 2. ORDENAR TIENDAS POR DISTANCIA (Si tenemos el GPS)
+  const tiendasOrdenadas = [...tiendas].map(tienda => {
+    if (userLocation && tienda.direccion?.latitud && tienda.direccion?.longitud) {
+      const dist = calcularDistancia(
+        userLocation.lat, userLocation.lng,
+        tienda.direccion.latitud, tienda.direccion.longitud
+      );
+      return { ...tienda, distanciaKm: dist };
+    }
+    return { ...tienda, distanciaKm: 9999 }; // Si no hay GPS, los mandamos al fondo
+  }).sort((a, b) => a.distanciaKm - b.distanciaKm).slice(0, 10); // Solo mostramos los 10 más cercanos
+
   return (
-    // Quitamos pt-6 para que el banner toque el navbar
     <div className="w-full flex flex-col bg-white pb-24">
       
       {/* 1. BANNER FULL WIDTH (EDGE TO EDGE) */}
       <BannerCarousel />
 
-      {/* 2. CATEGORÍAS CIRCULARES (Añadimos mt-6 para separarlo del banner) */}
+      {/* 2. CATEGORÍAS CIRCULARES */}
       <div className="px-5 flex justify-between mb-8 mt-6 max-w-md">
         {[
           { name: "Broaster", icon: <Flame className="w-7 h-7 text-[#D32F2F]" /> },
@@ -93,8 +137,8 @@ export default function UserDashboard() {
 
       {/* 3. TÍTULO EXTENDIDO E IMPONENTE */}
       <div className="px-5 mb-8 select-none w-full">
-        <h2 className="font-roboto font-black text-[38px] text-black leading-tight tracking-tight">
-          ¿Qué se te antoja<br />hoy?
+        <h2 className="font-roboto font-black text-[26px] sm:text-[32px] lg:text-[38px] text-black leading-tight tracking-tight whitespace-nowrap">
+          ¿Qué se te antoja hoy?
         </h2>
       </div>
 
@@ -130,17 +174,28 @@ export default function UserDashboard() {
 
       {/* HUARIQUES CERCA */}
       <Section title="Huariques Cerca de ti">
-        {tiendas.length > 0 ? (
+        {tiendasOrdenadas.length > 0 ? (
           <DraggableCarousel>
-            {tiendas.map((tienda) => (
+            {tiendasOrdenadas.map((tienda) => (
               <div 
                 key={tienda.id} 
                 onClick={() => navigate(`/dashboard/tienda/${tienda.id}`)}
-                className="min-w-[280px] w-[280px] bg-white rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.06)] border border-gray-50 overflow-hidden pb-4 cursor-pointer hover:shadow-lg transition-shadow shrink-0 pointer-events-auto"
+                className="min-w-[280px] w-[280px] bg-white rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.06)] border border-gray-50 overflow-hidden pb-4 cursor-pointer hover:shadow-lg transition-shadow shrink-0 pointer-events-auto relative"
               >
-                <div className="w-full h-[150px] pointer-events-none">
+                <div className="w-full h-[150px] pointer-events-none relative">
                   <img src={tienda.portadaUrl || "https://via.placeholder.com/280x140"} alt={tienda.nombre} draggable={false} className="w-full h-full object-cover" />
+                  
+                  {/* 🔥 ETIQUETA DE DISTANCIA FLOTANTE 🔥 */}
+                  {tienda.distanciaKm < 9999 && (
+                    <div className="absolute top-3 left-3 bg-white/95 px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1">
+                      <Navigation className="w-3.5 h-3.5 text-[#D32F2F]" />
+                      <span className="text-[11px] font-poppins font-bold text-black">
+                        {tienda.distanciaKm < 1 ? `${Math.round(tienda.distanciaKm * 1000)}m` : `${tienda.distanciaKm.toFixed(1)}km`}
+                      </span>
+                    </div>
+                  )}
                 </div>
+                
                 <div className="px-4 pt-3 flex flex-col pointer-events-none">
                   <div className="flex justify-between items-center">
                     <h3 className="font-poppins font-bold text-black text-[17px] truncate flex-1">{tienda.nombre}</h3>
@@ -160,10 +215,11 @@ export default function UserDashboard() {
       </Section>
 
       {/* RECOMENDADOS */}
-      {tiendas.length > 0 && (
+      {tiendasOrdenadas.length > 0 && (
         <Section title="Los más recomendados" noSeeAll>
           <DraggableCarousel>
-            {tiendas.slice(0, 8).map((tienda) => (
+            {/* Aquí ordenamos por pura calificación, sin importar si están lejos */}
+            {[...tiendas].sort((a, b) => (b.calificacionGeneral || 0) - (a.calificacionGeneral || 0)).slice(0, 8).map((tienda) => (
               <div key={tienda.id} onClick={() => navigate(`/dashboard/tienda/${tienda.id}`)} className="flex flex-col items-center gap-2 w-[80px] shrink-0 cursor-pointer pointer-events-auto">
                 <div className="w-[74px] h-[74px] rounded-full bg-gray-200 overflow-hidden shadow-sm pointer-events-none border-2 border-white">
                   <img src={tienda.logoUrl || tienda.portadaUrl || "https://via.placeholder.com/74"} alt={tienda.nombre} draggable={false} className="w-full h-full object-cover" />

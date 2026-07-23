@@ -14,8 +14,7 @@ export function getNavItems(role: UserRole | null): NavItem[] {
         { text: "Home", icon: <Home className="w-5 h-5" />, path: "/dashboard/quality" },
         { text: "Evaluar Huarique", icon: <ClipboardSignature className="w-5 h-5" />, path: "/dashboard/calificar/nueva" },
         { text: "Mis Huariques", icon: <Heart className="w-5 h-5" />, path: "/dashboard/quality" },
-        { text: "Mi Perfil", icon: <User className="w-5 h-5" />, path: "/dashboard/quality/perfil" },
-      ];
+        { text: "Perfil", icon: <User className="w-5 h-5" />, path: "/dashboard/quality/perfil" },      ];
     case "ADMIN":
       return [
         { text: "Aprobaciones", icon: <CheckCircle className="w-5 h-5" />, path: "/dashboard/admin/aprobaciones" },

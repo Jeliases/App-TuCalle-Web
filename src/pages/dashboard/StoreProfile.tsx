@@ -1,19 +1,26 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { auth, db } from "../../api/firebaseConfig";
 import { signOut } from "firebase/auth";
 import { doc, updateDoc } from "firebase/firestore";
-import { Camera, LogOut, Settings, Heart, Wrench, Lock, Unlock, Loader2, ArrowRightCircle, Ticket, AlertTriangle, Shield, Trash2 } from "lucide-react";
+import { Camera, LogOut, Settings, Heart, Wrench, Lock, Unlock, Loader2, ArrowRightCircle, Ticket, AlertTriangle, Shield, Trash2, ArrowLeft } from "lucide-react";
 
 const DIAS_SEMANA = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
 const ETIQUETAS_BASE = ["Broaster", "Caldos", "Parrilla", "Ensaladas", "Mariscos", "Chifa", "Criollo", "Postres"];
 
 export default function StoreProfile() {
-  const { userData, user } = useAuth();
+  const { userData, user, refreshUserData } = useAuth();
+  const navigate = useNavigate();
   const [selectedTab, setSelectedTab] = useState("Ajustes");
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [mensaje, setMensaje] = useState("");
+
+  // 🔥 1. EMPEZAR SIEMPRE ARRIBA
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   // Estado del Formulario
   const [formData, setFormData] = useState({
@@ -40,7 +47,8 @@ export default function StoreProfile() {
     if (!isEditing) return;
     setEtiquetasSeleccionadas(prev => {
       if (prev.includes(etiqueta)) return prev.filter(e => e !== etiqueta);
-      if (prev.length < 4) return [...prev, etiqueta];
+      // 🔥 2. RESTRICCIÓN DE MÁXIMO 5 ETIQUETAS (igual que en la app)
+      if (prev.length < 5) return [...prev, etiqueta]; 
       return prev;
     });
   };
@@ -80,9 +88,9 @@ export default function StoreProfile() {
 
       const userRef = doc(db, "tiendas", user.uid);
       await updateDoc(userRef, updatePayload);
+      await refreshUserData();
       setMensaje("✅ Cambios guardados");
       setIsEditing(false);
-      window.location.reload();
     } catch (error) {
       setMensaje("❌ Error al guardar");
     } finally {
@@ -93,13 +101,21 @@ export default function StoreProfile() {
   return (
     <div className="w-full flex flex-col bg-white min-h-screen pb-20">
       
-      {/* ── HEADER CON PORTADA ── */}
-      <div className="relative w-full h-[280px] md:h-[320px] bg-gray-200">
-        <img src={userData?.portadaUrl || "https://via.placeholder.com/800x400.png?text=Portada"} alt="Portada" className="w-full h-[190px] object-cover" />
-        <div className="absolute top-0 left-0 w-full h-[190px] bg-black/20"></div>
-        <button onClick={() => signOut(auth)} className="absolute top-4 right-4 p-2 cursor-pointer hover:bg-black/20 rounded-full transition-colors z-10">
-          <LogOut className="w-6 h-6 text-white" />
+      {/* 🔥 3. HEADER PEGAJOSO (STICKY) CON BOTÓN ATRÁS */}
+      <div className="sticky top-0 z-50 bg-white/90 backdrop-blur-sm border-b border-gray-100 px-5 py-3 flex justify-between items-center shadow-sm">
+        <button onClick={() => navigate("/dashboard/tienda")} className="p-2 hover:bg-gray-200 bg-gray-100 rounded-full transition-colors cursor-pointer">
+          <ArrowLeft className="w-5 h-5 text-black" />
         </button>
+        <span className="font-roboto font-bold text-lg text-black">Perfil de Tienda</span>
+        <button onClick={() => signOut(auth)} className="p-2 text-[#D32F2F] hover:bg-red-50 rounded-full transition-colors cursor-pointer">
+          <LogOut className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* ── HEADER CON PORTADA ── */}
+      <div className="relative w-full h-[240px] md:h-[320px] bg-gray-200">
+        <img src={userData?.portadaUrl || "https://via.placeholder.com/800x400.png?text=Portada"} alt="Portada" className="w-full h-[190px] md:h-[260px] object-cover" />
+        <div className="absolute top-0 left-0 w-full h-[190px] md:h-[260px] bg-black/20"></div>
 
         <div className="absolute bottom-6 left-6 md:left-8 flex items-end gap-4 z-10">
           <div className="relative">
@@ -111,14 +127,14 @@ export default function StoreProfile() {
             </button>
           </div>
           <div className="pb-3 hidden sm:flex flex-col">
-            <span className="text-gray-500 text-[13px] font-poppins">Mi perfil</span>
-            <h1 className="font-roboto font-bold text-2xl text-black">{userData?.nombre || "Cargando..."}</h1>
-            <span className="text-gray-500 text-[14px] font-poppins">Huarique</span>
+            <span className="text-white drop-shadow-md text-[13px] font-poppins">Mi perfil</span>
+            <h1 className="font-roboto font-bold text-2xl text-white drop-shadow-md">{userData?.nombre || "Cargando..."}</h1>
+            <span className="text-white drop-shadow-md text-[14px] font-poppins">Huarique</span>
           </div>
         </div>
       </div>
 
-      <div className="px-6 -mt-2">
+      <div className="px-6 mt-4">
         {/* ── CARD INFO ── */}
         <div className="w-full bg-white rounded-xl shadow-[0_2px_12px_rgba(0,0,0,0.06)] border border-gray-100 p-4 flex justify-between items-center mb-8">
           <div className="flex flex-col items-center w-1/3">
@@ -182,44 +198,56 @@ export default function StoreProfile() {
 
             <hr className="border-[#F0F0F0] mb-6" />
 
-            <h2 className="font-bold text-[15px] font-poppins text-black mb-4">Información de tu tienda</h2>
-            <ProfileInput label="Razón Social" value={formData.razonSocial} onChange={(v: string) => handleChange("razonSocial", v)} isEditing={isEditing} />
-            <ProfileInput label="Nombre de la tienda" value={formData.nombreTienda} onChange={(v: string) => handleChange("nombreTienda", v)} isEditing={isEditing} />
-            <ProfileInput label="Celular" value={formData.celular} onChange={(v: string) => handleChange("celular", v.replace(/\D/g, '').slice(0, 9))} isEditing={isEditing} />
-            <ProfileInput label="WhatsApp" value={formData.whatsapp} onChange={(v: string) => handleChange("whatsapp", v.replace(/\D/g, '').slice(0, 9))} isEditing={isEditing} />
-            <ProfileInput label="Dirección" value={formData.direccion} onChange={(v: string) => handleChange("direccion", v)} isEditing={isEditing} />
+            {/* 🔥 4. DIVISIÓN EN COLUMNAS (GRID) PARA TIENDA Y ENCARGADO 🔥 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              
+              {/* Columna Izquierda: Información de Tienda */}
+              <div className="flex flex-col">
+                <h2 className="font-bold text-[15px] font-poppins text-black mb-4">Información de tu tienda</h2>
+                <ProfileInput label="Razón Social" value={formData.razonSocial} onChange={(v: string) => handleChange("razonSocial", v)} isEditing={isEditing} />
+                <ProfileInput label="Nombre de la tienda" value={formData.nombreTienda} onChange={(v: string) => handleChange("nombreTienda", v)} isEditing={isEditing} />
+                <ProfileInput label="Celular" value={formData.celular} onChange={(v: string) => handleChange("celular", v.replace(/\D/g, '').slice(0, 9))} isEditing={isEditing} />
+                <ProfileInput label="WhatsApp" value={formData.whatsapp} onChange={(v: string) => handleChange("whatsapp", v.replace(/\D/g, '').slice(0, 9))} isEditing={isEditing} />
+                <ProfileInput label="Dirección" value={formData.direccion} onChange={(v: string) => handleChange("direccion", v)} isEditing={isEditing} />
 
-            <div className="flex flex-col py-2 mt-2 mb-6">
-              <label className="text-gray-500 text-xs mb-2">Etiquetas de tu huarique (Máximo 4)</label>
-              <div className="flex flex-wrap gap-2">
-                {ETIQUETAS_BASE.map(etiqueta => {
-                  const isSelected = etiquetasSeleccionadas.includes(etiqueta);
-                  return (
-                    <button key={etiqueta} onClick={() => toggleEtiqueta(etiqueta)} disabled={!isEditing} className={`px-4 py-2 rounded-full text-xs font-poppins transition-colors cursor-pointer ${isSelected ? 'bg-[#D32F2F] text-white font-bold' : 'bg-[#EEEEEE] text-gray-700'} ${!isEditing && !isSelected ? 'opacity-60 cursor-default' : ''}`}>
-                      {etiqueta}
-                    </button>
-                  );
-                })}
+                <div className="flex flex-col py-2 mt-2 mb-6">
+                  <label className="text-gray-500 text-xs mb-2 font-poppins">Etiquetas de tu huarique (Máximo 5)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {ETIQUETAS_BASE.map(etiqueta => {
+                      const isSelected = etiquetasSeleccionadas.includes(etiqueta);
+                      return (
+                        <button key={etiqueta} onClick={() => toggleEtiqueta(etiqueta)} disabled={!isEditing} className={`px-4 py-2 rounded-full text-xs font-poppins transition-colors cursor-pointer ${isSelected ? 'bg-[#D32F2F] text-white font-bold' : 'bg-[#EEEEEE] text-gray-700'} ${!isEditing && !isSelected ? 'opacity-60 cursor-default' : ''}`}>
+                          {etiqueta}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
+
+              {/* Columna Derecha: Información del Encargado */}
+              <div className="flex flex-col">
+                <h2 className="font-bold text-[15px] font-poppins text-black mb-4 md:mt-0 mt-2">Información de Encargado</h2>
+                <ProfileInput label="Nombres y Apellidos" value={formData.encargadoNombre} onChange={(v: string) => handleChange("encargadoNombre", v)} isEditing={isEditing} />
+                <ProfileInput label="Número de contacto" value={formData.encargadoContacto} onChange={(v: string) => handleChange("encargadoContacto", v.replace(/\D/g, '').slice(0, 9))} isEditing={isEditing} />
+                <ProfileInput label="Correo electrónico" value={formData.encargadoEmail} onChange={(v: string) => handleChange("encargadoEmail", v)} isEditing={isEditing} />
+              </div>
+
             </div>
 
-            <h2 className="font-bold text-[15px] font-poppins text-black mb-4 mt-2">Información de Encargado</h2>
-            <ProfileInput label="Nombres y Apellidos" value={formData.encargadoNombre} onChange={(v: string) => handleChange("encargadoNombre", v)} isEditing={isEditing} />
-            <ProfileInput label="Número de contacto" value={formData.encargadoContacto} onChange={(v: string) => handleChange("encargadoContacto", v.replace(/\D/g, '').slice(0, 9))} isEditing={isEditing} />
-            <ProfileInput label="Correo electrónico" value={formData.encargadoEmail} onChange={(v: string) => handleChange("encargadoEmail", v)} isEditing={isEditing} />
-
+            {/* Botón Guardar (Fuera del grid para ocupar todo el ancho o centrarse) */}
             {isEditing && (
-              <button onClick={guardarCambios} disabled={isSaving} className="w-full h-[55px] bg-[#D32F2F] hover:bg-[#B71C1C] text-white font-roboto font-bold text-base rounded-[28px] mt-8 flex justify-center items-center cursor-pointer transition-colors">
+              <button onClick={guardarCambios} disabled={isSaving} className="w-full md:w-1/2 md:mx-auto h-[55px] bg-[#D32F2F] hover:bg-[#B71C1C] text-white font-roboto font-bold text-base rounded-[28px] mt-8 flex justify-center items-center cursor-pointer transition-colors shadow-md">
                 {isSaving ? <Loader2 className="w-6 h-6 animate-spin" /> : "Guardar cambios"}
               </button>
             )}
-            {mensaje && <p className={`mt-4 text-[13px] font-poppins ${mensaje.includes("✅") ? "text-[#4CAF50]" : "text-red-500"}`}>{mensaje}</p>}
+            {mensaje && <p className={`text-center mt-4 text-[13px] font-poppins ${mensaje.includes("✅") ? "text-[#4CAF50]" : "text-red-500"}`}>{mensaje}</p>}
           </div>
         )}
 
         {/* ── CONTENIDO: MIS RESEÑAS ── */}
         {selectedTab === "Mis reseñas" && (
-          <div className="py-10 flex flex-col items-center justify-center text-center">
+          <div className="py-10 flex flex-col items-center justify-center text-center animate-fadeIn">
             <Heart className="w-12 h-12 text-[#D32F2F] mb-4" />
             <h3 className="font-roboto font-bold text-base text-black mb-2">Reseñas de Qualities</h3>
             <p className="font-poppins text-[13px] text-gray-500 max-w-[250px] leading-relaxed mb-4">Aquí aparecerán las evaluaciones CHAS que los Qualities han hecho de tu huarique.</p>
@@ -248,8 +276,8 @@ export default function StoreProfile() {
 function TabItem({ icon, label, isActive, onClick }: any) {
   return (
     <div onClick={onClick} className="flex flex-col items-center cursor-pointer relative group flex-1">
-      <div className={isActive ? "text-[#D32F2F]" : "text-gray-400 group-hover:text-gray-600"}>{icon}</div>
-      <span className={`font-poppins text-[12px] mt-1 ${isActive ? "text-[#D32F2F] font-bold" : "text-gray-400"}`}>{label}</span>
+      <div className={isActive ? "text-[#D32F2F]" : "text-gray-400 group-hover:text-gray-600 transition-colors"}>{icon}</div>
+      <span className={`font-poppins text-[12px] mt-1 transition-colors ${isActive ? "text-[#D32F2F] font-bold" : "text-gray-400"}`}>{label}</span>
       {isActive && <div className="absolute -bottom-[9px] w-10 h-[2px] bg-[#D32F2F] rounded-full"></div>}
     </div>
   );
@@ -259,7 +287,7 @@ function TimeInput({ label, value, onChange, disabled, hideLabel = false }: any)
   return (
     <div className="flex flex-col flex-1">
       {!hideLabel && <label className="text-gray-500 text-xs font-poppins mb-1">{label}</label>}
-      <input type="time" value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} className={`w-full rounded-lg outline-none px-3 py-2.5 text-sm transition-colors ${!disabled ? 'bg-white border border-[#D32F2F]' : 'bg-[#F9F9F9] border border-transparent text-gray-500'}`} />
+      <input type="time" value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} className={`w-full rounded-lg outline-none px-3 py-2.5 text-sm transition-colors font-poppins ${!disabled ? 'bg-white border border-[#D32F2F]' : 'bg-[#F9F9F9] border border-transparent text-gray-500'}`} />
     </div>
   );
 }
@@ -267,8 +295,8 @@ function TimeInput({ label, value, onChange, disabled, hideLabel = false }: any)
 function ProfileInput({ label, value, type = "text", isEditing, onChange }: any) {
   return (
     <div className="flex flex-col py-2">
-      <label className="text-gray-500 text-xs mb-1">{label}</label>
-      <input type={type} readOnly={!isEditing} value={value} onChange={(e) => onChange(e.target.value)} className={`w-full rounded-lg outline-none px-4 py-3 text-sm transition-colors ${isEditing ? 'bg-white border border-[#D32F2F]' : 'bg-[#F9F9F9] border border-transparent text-gray-700'}`} />
+      <label className="text-gray-500 text-xs font-poppins mb-1">{label}</label>
+      <input type={type} readOnly={!isEditing} value={value} onChange={(e) => onChange(e.target.value)} className={`w-full rounded-lg outline-none px-4 py-3 text-sm transition-colors font-poppins ${isEditing ? 'bg-white border border-[#D32F2F]' : 'bg-[#F9F9F9] border border-transparent text-gray-700'}`} />
     </div>
   );
 }
