@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 
 export function useUserLocation() {
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [address, setAddress] = useState<string | null>(null); // null significa que aún estamos consultando
+  const [address, setAddress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -31,7 +31,6 @@ export function useUserLocation() {
           if (data.status === "OK" && data.results.length > 0) {
             const components = data.results[0].address_components;
             
-            // Extracción precisa de componentes
             const route = components.find((c: any) => c.types.includes("route"))?.long_name || "";
             const streetNumber = components.find((c: any) => c.types.includes("street_number"))?.long_name || "";
             const district = components.find((c: any) => 
@@ -40,7 +39,6 @@ export function useUserLocation() {
               c.types.includes("administrative_area_level_3")
             )?.long_name || "";
 
-            // Formateo de dirección: "Calle Número, Distrito"
             if (route || district) {
               const fullAddress = [route, streetNumber].filter(Boolean).join(" ");
               setAddress(district ? `${fullAddress}, ${district}` : fullAddress);
@@ -51,10 +49,11 @@ export function useUserLocation() {
             setError(`Error de Google: ${data.status}`);
           }
         } catch (e) {
-          setError("Error al conectar con el servidor de mapas");
+          setError("Error al conectar con el mapa");
         }
       },
-      (geoError) => {
+      // 🔥 AQUÍ ESTABA EL "CULPABLE". Le quitamos la palabra "geoError" y lo dejamos vacío ()
+      () => {
         setError("Permiso de ubicación denegado");
       }
     );
