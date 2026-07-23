@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
+import { collection, query, where, orderBy, limit, getDocs, doc, onSnapshot, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { db } from "../../api/firebaseConfig";
-import { Flame, Soup, Utensils, Leaf, Navigation } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { Flame, Soup, Utensils, Leaf, Navigation, Heart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BannerCarousel from "../../components/layout/BannerCarousel";
 
@@ -57,9 +58,15 @@ function calcularDistancia(lat1: number, lon1: number, lat2: number, lon2: numbe
 
 export default function UserDashboard() {
   const navigate = useNavigate();
+  const { user, role } = useAuth(); // 🔥 Traemos el usuario
+  
   const [tiendas, setTiendas] = useState<any[]>([]);
   const [platos, setPlatos] = useState<any[]>([]);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  
+  // 🔥 Estados para los favoritos globales
+  const [favoritosTiendas, setFavoritosTiendas] = useState<string[]>([]);
+  const [favoritosPlatos, setFavoritosPlatos] = useState<string[]>([]);
 
   useEffect(() => {
     if ("geolocation" in navigator) {
@@ -73,7 +80,6 @@ export default function UserDashboard() {
 
     const fetchData = async () => {
       try {
-        // 🔥 OPTIMIZACIÓN 1: Límite de 50 tiendas para no saturar la red 🔥
         const qTiendas = query(collection(db, "tiendas"), where("estado", "==", "APROBADO"), limit(50));
         const tiendasSnap = await getDocs(qTiendas);
         let tiendasData = tiendasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -90,6 +96,43 @@ export default function UserDashboard() {
     
     fetchData();
   }, []);
+
+  // 🔥 Listener para traer los favoritos del usuario en tiempo real 🔥
+  useEffect(() => {
+    let unsub = () => {};
+    if (role === "USUARIO" && user?.uid) {
+      unsub = onSnapshot(doc(db, "usuarios", user.uid), (docSnap) => {
+        if (docSnap.exists()) {
+          setFavoritosTiendas(docSnap.data().favoritos || []);
+          setFavoritosPlatos(docSnap.data().platosFavoritos || []);
+        }
+      });
+    }
+    return () => unsub();
+  }, [user, role]);
+
+  // 🔥 Funciones para dar/quitar corazón desde el Home 🔥
+  const toggleFavoritoTienda = async (e: React.MouseEvent, idTienda: string) => {
+    e.stopPropagation(); // Evita que al dar click al corazón entres a la tienda
+    if (!user?.uid || role !== "USUARIO") return;
+    const ref = doc(db, "usuarios", user.uid);
+    if (favoritosTiendas.includes(idTienda)) {
+      await updateDoc(ref, { favoritos: arrayRemove(idTienda) });
+    } else {
+      await updateDoc(ref, { favoritos: arrayUnion(idTienda) });
+    }
+  };
+
+  const toggleFavoritoPlato = async (e: React.MouseEvent, idPlato: string) => {
+    e.stopPropagation();
+    if (!user?.uid || role !== "USUARIO") return;
+    const ref = doc(db, "usuarios", user.uid);
+    if (favoritosPlatos.includes(idPlato)) {
+      await updateDoc(ref, { platosFavoritos: arrayRemove(idPlato) });
+    } else {
+      await updateDoc(ref, { platosFavoritos: arrayUnion(idPlato) });
+    }
+  };
 
   const tiendasOrdenadas = [...tiendas].map(tienda => {
     if (userLocation && tienda.direccion?.latitud && tienda.direccion?.longitud) {
@@ -130,12 +173,22 @@ export default function UserDashboard() {
           <DraggableCarousel>
             {platos.map((plato) => {
               const pctDesc = plato.precioOriginal > 0 ? Math.round((1 - (plato.precioDescuento / plato.precioOriginal)) * 100) : 0;
+              const isFav = favoritosPlatos.includes(plato.id);
+              
               return (
-                <div key={plato.id} className="min-w-[180px] w-[180px] bg-white rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.06)] border border-gray-50 overflow-hidden flex flex-col pb-4 shrink-0 pointer-events-auto">
+                <div key={plato.id} className="min-w-[180px] w-[180px] bg-white rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.06)] border border-gray-50 overflow-hidden flex flex-col pb-4 shrink-0 pointer-events-auto relative">
                   <div className="w-full h-[150px] relative pointer-events-none">
-                    {/* 🔥 OPTIMIZACIÓN 2: Lazy Loading de Imágenes 🔥 */}
                     <img src={plato.imagenUrl || "https://via.placeholder.com/160"} alt={plato.nombre} draggable={false} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                   </div>
+                  
+                  {/* 🔥 Botón Corazón Plato (Home) 🔥 */}
+                  <div 
+                    onClick={(e) => toggleFavoritoPlato(e, plato.id)}
+                    className="absolute top-2 right-2 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center cursor-pointer shadow-sm pointer-events-auto hover:scale-105 transition-transform"
+                  >
+                    <Heart className={`w-4 h-4 transition-colors ${isFav ? 'text-[#D32F2F] fill-current' : 'text-gray-400'}`} />
+                  </div>
+
                   <div className="px-3 pt-3 flex flex-col pointer-events-none">
                     <h3 className="font-poppins font-bold text-black text-base truncate">{plato.nombre}</h3>
                     <div className="flex justify-between items-center mt-1">
@@ -158,40 +211,51 @@ export default function UserDashboard() {
       <Section title="Huariques Cerca de ti">
         {tiendasOrdenadas.length > 0 ? (
           <DraggableCarousel>
-            {tiendasOrdenadas.map((tienda) => (
-              <div 
-                key={tienda.id} 
-                onClick={() => navigate(`/dashboard/tienda/${tienda.id}`)}
-                className="min-w-[280px] w-[280px] bg-white rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.06)] border border-gray-50 overflow-hidden pb-4 cursor-pointer hover:shadow-lg transition-shadow shrink-0 pointer-events-auto relative"
-              >
-                <div className="w-full h-[150px] pointer-events-none relative">
-                  {/* 🔥 OPTIMIZACIÓN 2: Lazy Loading de Imágenes 🔥 */}
-                  <img src={tienda.portadaUrl || "https://via.placeholder.com/280x140"} alt={tienda.nombre} draggable={false} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+            {tiendasOrdenadas.map((tienda) => {
+              const isFav = favoritosTiendas.includes(tienda.id);
+              
+              return (
+                <div 
+                  key={tienda.id} 
+                  onClick={() => navigate(`/dashboard/tienda/${tienda.id}`)}
+                  className="min-w-[280px] w-[280px] bg-white rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.06)] border border-gray-50 overflow-hidden pb-4 cursor-pointer hover:shadow-lg transition-shadow shrink-0 pointer-events-auto relative"
+                >
+                  <div className="w-full h-[150px] pointer-events-none relative">
+                    <img src={tienda.portadaUrl || "https://via.placeholder.com/280x140"} alt={tienda.nombre} draggable={false} loading="lazy" decoding="async" className="w-full h-full object-cover" />
+                    
+                    {tienda.distanciaKm < 9999 && (
+                      <div className="absolute top-3 left-3 bg-white/95 px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1">
+                        <Navigation className="w-3.5 h-3.5 text-[#D32F2F]" />
+                        <span className="text-[11px] font-poppins font-bold text-black">
+                          {tienda.distanciaKm < 1 ? `${Math.round(tienda.distanciaKm * 1000)}m` : `${tienda.distanciaKm.toFixed(1)}km`}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                   
-                  {tienda.distanciaKm < 9999 && (
-                    <div className="absolute top-3 left-3 bg-white/95 px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1">
-                      <Navigation className="w-3.5 h-3.5 text-[#D32F2F]" />
-                      <span className="text-[11px] font-poppins font-bold text-black">
-                        {tienda.distanciaKm < 1 ? `${Math.round(tienda.distanciaKm * 1000)}m` : `${tienda.distanciaKm.toFixed(1)}km`}
-                      </span>
+                  {/* 🔥 Botón Corazón Tienda (Home) 🔥 */}
+                  <div 
+                    onClick={(e) => toggleFavoritoTienda(e, tienda.id)}
+                    className="absolute top-3 right-3 w-9 h-9 bg-white/95 rounded-full shadow-sm flex items-center justify-center pointer-events-auto cursor-pointer hover:scale-105 transition-transform"
+                  >
+                    <Heart className={`w-5 h-5 transition-colors ${isFav ? 'text-[#D32F2F] fill-current' : 'text-gray-400'}`} />
+                  </div>
+
+                  <div className="px-4 pt-3 flex flex-col pointer-events-none">
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-poppins font-bold text-black text-[17px] truncate flex-1">{tienda.nombre}</h3>
+                      <span className="text-sm font-poppins font-bold text-gray-700 ml-2 shrink-0">★ {tienda.calificacionGeneral?.toFixed(1) || "5.0"}</span>
                     </div>
-                  )}
-                </div>
-                
-                <div className="px-4 pt-3 flex flex-col pointer-events-none">
-                  <div className="flex justify-between items-center">
-                    <h3 className="font-poppins font-bold text-black text-[17px] truncate flex-1">{tienda.nombre}</h3>
-                    <span className="text-sm font-poppins font-bold text-gray-700 ml-2 shrink-0">★ {tienda.calificacionGeneral?.toFixed(1) || "5.0"}</span>
-                  </div>
-                  <span className="text-xs font-poppins text-gray-500 mt-1 truncate">{tienda.direccion?.texto?.split(",")[1]?.trim() || "Lima"} • {tienda.horario || "10 AM - 10 PM"}</span>
-                  <div className="flex flex-wrap gap-1.5 mt-3">
-                    {(tienda.etiquetas || ["Comida", "Local"]).slice(0, 3).map((tag: string, i: number) => (
-                      <span key={i} className="bg-[#D32F2F] text-white text-[10px] font-poppins font-bold px-2 py-1 rounded-full">{tag}</span>
-                    ))}
+                    <span className="text-xs font-poppins text-gray-500 mt-1 truncate">{tienda.direccion?.texto?.split(",")[1]?.trim() || "Lima"} • {tienda.horario || "10 AM - 10 PM"}</span>
+                    <div className="flex flex-wrap gap-1.5 mt-3">
+                      {(tienda.etiquetas || ["Comida", "Local"]).slice(0, 3).map((tag: string, i: number) => (
+                        <span key={i} className="bg-[#D32F2F] text-white text-[10px] font-poppins font-bold px-2 py-1 rounded-full">{tag}</span>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </DraggableCarousel>
         ) : <EmptyState text="Aún no hay huariques registrados cerca de ti." />}
       </Section>
@@ -202,7 +266,6 @@ export default function UserDashboard() {
             {[...tiendas].sort((a, b) => (b.calificacionGeneral || 0) - (a.calificacionGeneral || 0)).slice(0, 8).map((tienda) => (
               <div key={tienda.id} onClick={() => navigate(`/dashboard/tienda/${tienda.id}`)} className="flex flex-col items-center gap-2 w-[80px] shrink-0 cursor-pointer pointer-events-auto">
                 <div className="w-[74px] h-[74px] rounded-full bg-gray-200 overflow-hidden shadow-sm pointer-events-none border-2 border-white">
-                  {/* 🔥 OPTIMIZACIÓN 2: Lazy Loading de Imágenes 🔥 */}
                   <img src={tienda.logoUrl || tienda.portadaUrl || "https://via.placeholder.com/74"} alt={tienda.nombre} draggable={false} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                 </div>
                 <span className="text-[11px] font-poppins font-medium text-gray-600 text-center truncate w-full pointer-events-none">{tienda.nombre}</span>
@@ -217,7 +280,6 @@ export default function UserDashboard() {
           <DraggableCarousel>
             {tiendas.slice().reverse().slice(0, 5).map((tienda) => (
               <div key={tienda.id} onClick={() => navigate(`/dashboard/tienda/${tienda.id}`)} className="min-w-[280px] w-[280px] h-[200px] bg-white rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.06)] border border-gray-50 overflow-hidden flex flex-col cursor-pointer shrink-0 pointer-events-auto">
-                {/* 🔥 OPTIMIZACIÓN 2: Lazy Loading de Imágenes 🔥 */}
                 <img src={tienda.portadaUrl || "https://via.placeholder.com/280"} draggable={false} loading="lazy" decoding="async" className="w-full h-[65%] object-cover pointer-events-none" alt="" />
                 <div className="px-4 h-[35%] flex flex-col justify-center pointer-events-none bg-white">
                   <span className="font-poppins font-bold text-black text-base truncate">{tienda.nombre}</span>

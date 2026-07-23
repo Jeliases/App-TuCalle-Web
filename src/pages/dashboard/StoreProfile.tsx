@@ -43,12 +43,18 @@ export default function StoreProfile() {
 
   const handleChange = (field: string, value: string) => setFormData(prev => ({ ...prev, [field]: value }));
 
-  const toggleEtiqueta = (etiqueta: string) => {
+const toggleEtiqueta = (etiqueta: string) => {
     if (!isEditing) return;
     setEtiquetasSeleccionadas(prev => {
-      if (prev.includes(etiqueta)) return prev.filter(e => e !== etiqueta);
-      // 🔥 2. RESTRICCIÓN DE MÁXIMO 5 ETIQUETAS (igual que en la app)
-      if (prev.length < 5) return [...prev, etiqueta]; 
+      // Si ya la tiene seleccionada, la remueve (esto siempre debe dejar pasar)
+      if (prev.includes(etiqueta)) {
+        return prev.filter(e => e !== etiqueta);
+      }
+      // Si quiere agregar una nueva, verificamos que estrictamente sean menos de 5
+      if (prev.length < 5) {
+        return [...prev, etiqueta];
+      }
+      // Si ya llegó a 5, no hace nada
       return prev;
     });
   };

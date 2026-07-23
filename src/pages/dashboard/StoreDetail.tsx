@@ -4,7 +4,6 @@ import { doc, getDoc, collection, query, where, onSnapshot, updateDoc, arrayUnio
 import { db } from "../../api/firebaseConfig";
 import { useAuth } from "../../context/AuthContext";
 import { ArrowLeft, MapPin, Clock, Bookmark, Heart, Star, Phone, Menu, Loader2, MessageCircle } from "lucide-react";
-// 🔥 Importamos tu nuevo componente 🔥
 import StoreComments from "../../components/layout/StoreComments";
 
 export default function StoreDetail() {
@@ -15,7 +14,11 @@ export default function StoreDetail() {
   const [store, setStore] = useState<any>(null);
   const [platos, setPlatos] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isGuardado, setIsGuardado] = useState(false);
+  
+  // Estados para los botones de guardado
+  const [isGuardadoQuality, setIsGuardadoQuality] = useState(false);
+  const [isFavoritoUsuario, setIsFavoritoUsuario] = useState(false);
+  
   const [filtroSeleccionado, setFiltroSeleccionado] = useState("Destacados");
 
   useEffect(() => {
@@ -39,12 +42,24 @@ export default function StoreDetail() {
       setPlatos(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
+    // Listener para el Bookmark (Quality)
     let unsubQuality = () => {};
     if (role === "QUALITY" && user?.uid) {
       unsubQuality = onSnapshot(doc(db, "qualities", user.uid), (docSnap) => {
         if (docSnap.exists()) {
           const misHuariques = docSnap.data().misHuariques || [];
-          setIsGuardado(misHuariques.includes(id));
+          setIsGuardadoQuality(misHuariques.includes(id));
+        }
+      });
+    }
+
+    // 🔥 Listener para el Corazón (Usuario) 🔥
+    let unsubUser = () => {};
+    if (role === "USUARIO" && user?.uid) {
+      unsubUser = onSnapshot(doc(db, "usuarios", user.uid), (docSnap) => {
+        if (docSnap.exists()) {
+          const misFavoritos = docSnap.data().favoritos || [];
+          setIsFavoritoUsuario(misFavoritos.includes(id));
         }
       });
     }
@@ -54,17 +69,29 @@ export default function StoreDetail() {
     return () => {
       unsubPlatos();
       unsubQuality();
+      unsubUser();
     };
   }, [id, role, user]);
 
-  const toggleGuardarTienda = async () => {
+  const toggleGuardarQuality = async () => {
     if (!user?.uid || role !== "QUALITY") return;
     const ref = doc(db, "qualities", user.uid);
-    if (isGuardado) {
+    if (isGuardadoQuality) {
       await updateDoc(ref, { misHuariques: arrayRemove(id) });
     } else {
       await updateDoc(ref, { misHuariques: arrayUnion(id) });
-      alert("Huarique guardado para su reseña"); 
+      alert("Huarique guardado para evaluación CHAS"); 
+    }
+  };
+
+  // 🔥 Función para agregar/quitar de Favoritos (Usuario) 🔥
+  const toggleFavoritoUsuario = async () => {
+    if (!user?.uid || role !== "USUARIO") return;
+    const ref = doc(db, "usuarios", user.uid);
+    if (isFavoritoUsuario) {
+      await updateDoc(ref, { favoritos: arrayRemove(id) });
+    } else {
+      await updateDoc(ref, { favoritos: arrayUnion(id) });
     }
   };
 
@@ -96,14 +123,20 @@ export default function StoreDetail() {
 
       <div className="px-5 w-full h-[180px] relative mt-4">
         <img src={store.portadaUrl || "https://via.placeholder.com/800x400.png?text=Sin+Portada"} alt="Portada" className="w-full h-full object-cover rounded-2xl" />
+        
+        {/* Botón Bookmark para Quality */}
         {role === "QUALITY" && (
-          <button onClick={toggleGuardarTienda} className="absolute top-3 left-8 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-md cursor-pointer transition-transform active:scale-95">
-            <Bookmark className={`w-5 h-5 ${isGuardado ? 'text-[#D32F2F] fill-current' : 'text-gray-400'}`} />
+          <button onClick={toggleGuardarQuality} className="absolute top-3 left-8 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-md cursor-pointer transition-transform active:scale-95">
+            <Bookmark className={`w-5 h-5 ${isGuardadoQuality ? 'text-[#D32F2F] fill-current' : 'text-gray-400'}`} />
           </button>
         )}
-        <button className="absolute top-3 right-8 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-md cursor-pointer transition-transform active:scale-95">
-          <Heart className="w-5 h-5 text-gray-400" />
-        </button>
+
+        {/* 🔥 Botón Corazón para Usuarios normales 🔥 */}
+        {role === "USUARIO" && (
+          <button onClick={toggleFavoritoUsuario} className="absolute top-3 right-8 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-md cursor-pointer transition-transform active:scale-95">
+            <Heart className={`w-5 h-5 transition-colors ${isFavoritoUsuario ? 'text-[#D32F2F] fill-current' : 'text-gray-400 hover:text-[#D32F2F]'}`} />
+          </button>
+        )}
       </div>
 
       <div className="px-5 py-4">
@@ -186,9 +219,11 @@ export default function StoreDetail() {
               <div key={plato.id} className="flex py-3 bg-white items-center border-b border-gray-50 last:border-0">
                 <div className="w-[110px] h-[110px] rounded-2xl relative shrink-0 shadow-sm">
                   <img src={plato.imagenUrl} alt={plato.nombre} className="w-full h-full object-cover rounded-2xl" />
-                  <div className="absolute top-2 right-2 w-7 h-7 bg-white/90 rounded-full flex items-center justify-center cursor-pointer shadow-sm">
-                    <Heart className="w-4 h-4 text-gray-400 hover:text-[#D32F2F]" />
-                  </div>
+                  {role === "USUARIO" && (
+                     <div className="absolute top-2 right-2 w-7 h-7 bg-white/90 rounded-full flex items-center justify-center cursor-pointer shadow-sm hover:scale-105 transition-transform">
+                       <Heart className="w-4 h-4 text-gray-400 hover:text-[#D32F2F]" />
+                     </div>
+                  )}
                 </div>
                 <div className="ml-4 flex-1">
                   <h3 className="font-roboto font-bold text-[16px] text-gray-900">{plato.nombre}</h3>
@@ -221,7 +256,6 @@ export default function StoreDetail() {
       
       <div className="w-full h-2 bg-gray-50 my-2"></div>
 
-      {/* 🔥 AHORA SOLO LLAMAMOS AL COMPONENTE 🔥 */}
       <StoreComments storeId={store.id} storeNombre={store.nombre} />
       
     </div>

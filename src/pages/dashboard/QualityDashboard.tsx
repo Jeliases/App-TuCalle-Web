@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { collection, query, where, getDocs, limit } from "firebase/firestore";
+import { collection, query, where, getDocs, limit, doc, onSnapshot, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { db } from "../../api/firebaseConfig";
-import { Search, Flame, Soup, Utensils, Leaf, ClipboardSignature } from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { Search, Flame, Soup, Utensils, Leaf, ClipboardSignature, Bookmark } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BannerCarousel from "../../components/layout/BannerCarousel";
 
-// 🔥 CARRUSEL ARRASTRABLE: Cero barras de scroll y control con cursor
+// 🔥 CARRUSEL ARRASTRABLE
 function DraggableCarousel({ children }: { children: React.ReactNode }) {
   const sliderRef = useRef<HTMLDivElement>(null);
   let isDown = useRef(false);
@@ -37,14 +38,18 @@ function DraggableCarousel({ children }: { children: React.ReactNode }) {
 }
 
 export default function QualityDashboard() {
+  const { user, role } = useAuth();
+  const navigate = useNavigate();
+  
   const [tiendas, setTiendas] = useState<any[]>([]);
   const [platos, setPlatos] = useState<any[]>([]);
-  const navigate = useNavigate();
+  
+  // 🔥 Estado para los huariques guardados por el Quality en tiempo real
+  const [misHuariquesIds, setMisHuariquesIds] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // 🔥 Limpiado: Ahora usamos limit(50) y limit(10) igual que el usuario
         const qTiendas = query(collection(db, "tiendas"), where("estado", "==", "APROBADO"), limit(50));
         const tiendasSnap = await getDocs(qTiendas);
         const tiendasData = tiendasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -61,11 +66,35 @@ export default function QualityDashboard() {
     fetchData();
   }, []);
 
+  // 🔥 Escuchar los Huariques Guardados del Quality en tiempo real
+  useEffect(() => {
+    let unsub = () => {};
+    if (role === "QUALITY" && user?.uid) {
+      unsub = onSnapshot(doc(db, "qualities", user.uid), (docSnap) => {
+        if (docSnap.exists()) {
+          setMisHuariquesIds(docSnap.data().misHuariques || []);
+        }
+      });
+    }
+    return () => unsub();
+  }, [user, role]);
+
+  // 🔥 Función para guardar/quitar huarique sin entrar al detalle
+  const toggleGuardarHuarique = async (e: React.MouseEvent, idTienda: string) => {
+    e.stopPropagation(); // Evita que al dar click al icono entres a la tienda
+    if (!user?.uid || role !== "QUALITY") return;
+    const ref = doc(db, "qualities", user.uid);
+    if (misHuariquesIds.includes(idTienda)) {
+      await updateDoc(ref, { misHuariques: arrayRemove(idTienda) });
+    } else {
+      await updateDoc(ref, { misHuariques: arrayUnion(idTienda) });
+    }
+  };
+
   return (
-    // 🔥 Quitamos el pt-4 para que el Banner toque el Navbar
     <div className="w-full flex flex-col bg-white pb-24">
       
-      {/* BANNER DINÁMICO (Edge to Edge) */}
+      {/* BANNER DINÁMICO */}
       <div className="mb-7">
         <BannerCarousel />
       </div>
@@ -96,7 +125,7 @@ export default function QualityDashboard() {
         </div>
       </div>
 
-      {/* 🔥 BOTÓN RÁPIDO DE EVALUACIÓN CHAS 🔥 */}
+      {/* BOTÓN RÁPIDO DE EVALUACIÓN CHAS */}
       <div className="px-5 mb-8">
         <button 
           onClick={() => navigate('/dashboard/calificar/nueva')}
@@ -125,7 +154,6 @@ export default function QualityDashboard() {
               return (
                 <div key={plato.id} className="min-w-[160px] w-[160px] bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.08)] border border-gray-50 overflow-hidden flex flex-col pb-3 shrink-0 pointer-events-auto">
                   <div className="w-full h-[140px] relative pointer-events-none">
-                    {/* 🔥 OPTIMIZACIÓN 2: Lazy Loading 🔥 */}
                     <img src={plato.imagenUrl || "https://via.placeholder.com/160"} alt={plato.nombre} draggable={false} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                   </div>
                   <div className="px-3 pt-3 flex flex-col pointer-events-none">
@@ -152,30 +180,41 @@ export default function QualityDashboard() {
         <h2 className="text-[20px] font-roboto font-bold text-black mb-3">Huariques recomendados</h2>
         {tiendas.length > 0 ? (
           <DraggableCarousel>
-            {tiendas.map((tienda) => (
-              <div 
-                key={tienda.id} 
-                onClick={() => navigate(`/dashboard/quality/tienda/${tienda.id}`)} 
-                className="min-w-[280px] w-[280px] bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.08)] border border-gray-50 overflow-hidden pb-3 shrink-0 cursor-pointer hover:shadow-md transition-shadow pointer-events-auto"
-              >
-                <div className="w-full h-[140px] pointer-events-none">
-                  {/* 🔥 OPTIMIZACIÓN 2: Lazy Loading 🔥 */}
-                  <img src={tienda.portadaUrl || "https://via.placeholder.com/280x140"} alt={tienda.nombre} draggable={false} loading="lazy" decoding="async" className="w-full h-full object-cover" />
-                </div>
-                <div className="px-3 pt-3 flex flex-col pointer-events-none">
-                  <div className="flex justify-between items-center">
-                    <h3 className="font-roboto font-bold text-black text-base truncate flex-1">{tienda.nombre}</h3>
-                    <span className="font-poppins text-sm font-bold text-gray-700 ml-2">★ {tienda.calificacionGeneral?.toFixed(1) || "5.0"}</span>
+            {tiendas.map((tienda) => {
+              const isGuardado = misHuariquesIds.includes(tienda.id);
+              return (
+                <div 
+                  key={tienda.id} 
+                  onClick={() => navigate(`/dashboard/quality/tienda/${tienda.id}`)} 
+                  className="min-w-[280px] w-[280px] bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.08)] border border-gray-50 overflow-hidden pb-3 shrink-0 cursor-pointer hover:shadow-md transition-shadow pointer-events-auto relative"
+                >
+                  <div className="w-full h-[140px] pointer-events-none relative">
+                    <img src={tienda.portadaUrl || "https://via.placeholder.com/280x140"} alt={tienda.nombre} draggable={false} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                   </div>
-                  <span className="font-poppins text-xs text-gray-500 mt-1 truncate">{tienda.direccion?.texto?.split(",")[1]?.trim() || "Lima"} • {tienda.horario}</span>
-                  <div className="flex flex-wrap gap-1 mt-3">
-                    {(tienda.etiquetas || []).slice(0, 3).map((tag: string, i: number) => (
-                      <span key={i} className="bg-[#D32F2F] text-white text-[10px] font-poppins font-bold px-2 py-1 rounded-lg">{tag}</span>
-                    ))}
+
+                  {/* 🔥 BOTÓN MARCADOR PARA EL QUALITY EN EL HOME 🔥 */}
+                  <div 
+                    onClick={(e) => toggleGuardarHuarique(e, tienda.id)}
+                    className="absolute top-3 right-3 w-9 h-9 bg-white/95 rounded-full shadow-sm flex items-center justify-center pointer-events-auto cursor-pointer hover:scale-105 transition-transform"
+                  >
+                    <Bookmark className={`w-5 h-5 transition-colors ${isGuardado ? 'text-[#D32F2F] fill-current' : 'text-gray-400 hover:text-[#D32F2F]'}`} />
+                  </div>
+
+                  <div className="px-3 pt-3 flex flex-col pointer-events-none">
+                    <div className="flex justify-between items-center">
+                      <h3 className="font-roboto font-bold text-black text-base truncate flex-1">{tienda.nombre}</h3>
+                      <span className="font-poppins text-sm font-bold text-gray-700 ml-2">★ {tienda.calificacionGeneral?.toFixed(1) || "5.0"}</span>
+                    </div>
+                    <span className="font-poppins text-xs text-gray-500 mt-1 truncate">{tienda.direccion?.texto?.split(",")[1]?.trim() || "Lima"} • {tienda.horario}</span>
+                    <div className="flex flex-wrap gap-1 mt-3">
+                      {(tienda.etiquetas || []).slice(0, 3).map((tag: string, i: number) => (
+                        <span key={i} className="bg-[#D32F2F] text-white text-[10px] font-poppins font-bold px-2 py-1 rounded-lg">{tag}</span>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </DraggableCarousel>
         ) : <p className="text-sm font-poppins text-gray-400">No hay huariques registrados.</p>}
       </div>

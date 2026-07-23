@@ -13,8 +13,12 @@ export function getNavItems(role: UserRole | null): NavItem[] {
       return [
         { text: "Home", icon: <Home className="w-5 h-5" />, path: "/dashboard/quality" },
         { text: "Evaluar Huarique", icon: <ClipboardSignature className="w-5 h-5" />, path: "/dashboard/calificar/nueva" },
-        { text: "Mis Huariques", icon: <Heart className="w-5 h-5" />, path: "/dashboard/quality" },
-        { text: "Perfil", icon: <User className="w-5 h-5" />, path: "/dashboard/quality/perfil" },      ];
+        // 🔥 AÑADIDO: Ruta para Mis Reseñas
+        { text: "Mis Reseñas", icon: <Star className="w-5 h-5" />, path: "/dashboard/quality/perfil?tab=resenas" },
+        // 🔥 ACTUALIZADO: Ruta para Mis Huariques
+        { text: "Mis Huariques", icon: <Heart className="w-5 h-5" />, path: "/dashboard/quality/perfil?tab=huariques" },
+        { text: "Perfil", icon: <User className="w-5 h-5" />, path: "/dashboard/quality/perfil" },
+      ];
     case "ADMIN":
       return [
         { text: "Aprobaciones", icon: <CheckCircle className="w-5 h-5" />, path: "/dashboard/admin/aprobaciones" },
@@ -34,7 +38,7 @@ export function getNavItems(role: UserRole | null): NavItem[] {
         { text: "Home", icon: <Home className="w-5 h-5" />, path: "/dashboard/usuario" },
         { text: "Ofertas", icon: <BadgeDollarSign className="w-5 h-5" />, path: "/dashboard/ofertas" },
         { text: "Pedidos", icon: <ShoppingBag className="w-5 h-5" />, path: "/dashboard/pedidos" },
-        { text: "Favoritos", icon: <Heart className="w-5 h-5" />, path: "/dashboard/favoritos" },
+        { text: "Favoritos", icon: <Heart className="w-5 h-5" />, path: "/dashboard/perfil?tab=favoritos" },
         { text: "Perfil", icon: <User className="w-5 h-5" />, path: "/dashboard/perfil" },
       ];
   }
