@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { Loader2 } from "lucide-react"; 
 
@@ -13,6 +14,8 @@ import RoleSelection from "../pages/auth/RoleSelection";
 import RegisterUser from "../pages/auth/RegisterUser";
 import RegisterStore from "../pages/auth/RegisterStore";
 import Welcome from "../pages/auth/Welcome";
+// 🔥 1. AÑADIDO: Importamos tu nueva pantalla de reset
+import ResetPassword from "../pages/auth/ResetPassword"; 
 
 // Dashboards y Perfiles
 import UserDashboard from "../pages/dashboard/UserDashboard";
@@ -24,12 +27,27 @@ import QualityProfile from "../pages/dashboard/QualityProfile";
 import QualityEvaluation from "../pages/dashboard/QualityEvaluation";
 import StoreDetail from "../pages/dashboard/StoreDetail";
 
+// 🔥 2. AÑADIDO: El interceptor que atrapa el link del correo
+function FirebaseActionHandler() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const mode = searchParams.get("mode");
+    const oobCode = searchParams.get("oobCode");
+
+    // Si detecta que es un reseteo de contraseña, te salva de ser redirigido a Welcome
+    if (mode === "resetPassword" && oobCode) {
+      navigate(`/reset-password?oobCode=${oobCode}`, { replace: true });
+    }
+  }, [searchParams, navigate]);
+
+  return null;
+}
+
 function RootDispatcher() {
-  //  AÑADIDO: Sacamos 'loading' del contexto de autenticación
   const { user, role, loading } = useAuth();
 
-  //  SOLUCIÓN: Si Firebase está "pensando", frenamos la pantalla y esperamos.
-  // Esto evita que te patee a /welcome por error.
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
@@ -53,10 +71,15 @@ function RootDispatcher() {
 export default function AppRouter() {
   return (
     <BrowserRouter>
+      {/* 🔥 3. AÑADIDO: Colocamos el interceptor aquí, observando toda la app */}
+      <FirebaseActionHandler />
+
       <Routes>
         {/* === RUTAS PÚBLICAS === */}
-        {/* Welcome YA NO tiene AuthLayout para que ocupe el 100% de la pantalla 🔥 */}
         <Route path="/welcome" element={<Welcome />} />
+        
+        {/* 🔥 4. AÑADIDO: La ruta para que se dibuje la pantalla nueva */}
+        <Route path="/reset-password" element={<ResetPassword />} />
         
         <Route path="/login" element={<AuthLayout><Login /></AuthLayout>} />
         <Route path="/register-role" element={<AuthLayout><RoleSelection /></AuthLayout>} />
@@ -87,10 +110,7 @@ export default function AppRouter() {
         </Route>
 
         {/* === RUTAS POR DEFECTO === */}
-        {/* Ahora la raíz ("/") usa nuestro distribuidor inteligente */}
         <Route path="/" element={<RootDispatcher />} />
-        
-        {/* Si escriben una URL que no existe, los mandamos a la raíz */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

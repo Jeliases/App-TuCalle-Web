@@ -6,7 +6,7 @@ import { Settings, Wrench, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function StoreDashboard() {
-  const { userData, user } = useAuth();
+  const { userData, user,refreshUserData } = useAuth();
   const navigate = useNavigate();
   const [isUpdating, setIsUpdating] = useState(false);
 
@@ -19,7 +19,7 @@ export default function StoreDashboard() {
     try {
       const userRef = doc(db, "tiendas", user.uid);
       await updateDoc(userRef, { estadoLocal: nuevoEstado });
-      window.location.reload(); // Recarga para actualizar AuthContext global
+      await refreshUserData();// Recarga para actualizar AuthContext global
     } catch (error) {
       console.error("Error al actualizar el estado:", error);
     } finally {

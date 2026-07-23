@@ -9,13 +9,11 @@ export default function QualityEvaluation() {
   const { user, userData } = useAuth();
   const navigate = useNavigate();
 
-  // Estados que reflejan tu EvaluacionViewModel.kt
   const [tiendasGuardadas, setTiendasGuardadas] = useState<any[]>([]);
   const [platosTienda, setPlatosTienda] = useState<any[]>([]);
   const [tiendaSeleccionada, setTiendaSeleccionada] = useState<any>(null);
   const [platosSeleccionados, setPlatosSeleccionados] = useState<string[]>([]);
   
-  // Variables del método CHAS
   const [confort, setConfort] = useState(4.5);
   const [higiene, setHigiene] = useState(4.0);
   const [atencion, setAtencion] = useState(4.0);
@@ -25,23 +23,23 @@ export default function QualityEvaluation() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Cálculo en tiempo real
   const promedioChas = (confort + higiene + atencion + sabrosura) / 4.0;
 
   useEffect(() => {
     const cargarTiendasGuardadas = async () => {
       if (!user) return;
       try {
-        // Buscamos el documento del Quality para sacar "misHuariques"
         const qualityDoc = await getDoc(doc(db, "qualities", user.uid));
-        const misHuariquesIds = qualityDoc.data()?.misHuariques || [];
+        const misHuariquesIds: string[] = qualityDoc.data()?.misHuariques || [];
         
         if (misHuariquesIds.length > 0) {
-          const tiendasData = [];
-          for (const id of misHuariquesIds) {
-            const tDoc = await getDoc(doc(db, "tiendas", id));
-            if (tDoc.exists()) tiendasData.push({ id: tDoc.id, ...tDoc.data() });
-          }
+          const promesas = misHuariquesIds.map((id: string) => getDoc(doc(db, "tiendas", id)));
+          const docsSnaps = await Promise.all(promesas);
+          
+          const tiendasData = docsSnaps
+            .filter(tDoc => tDoc.exists())
+            .map(tDoc => ({ id: tDoc.id, ...tDoc.data() }));
+            
           setTiendasGuardadas(tiendasData);
         }
       } catch (error) { console.error("Error al cargar huariques:", error); }
@@ -55,10 +53,9 @@ export default function QualityEvaluation() {
     if (!tienda) return;
     
     setTiendaSeleccionada(tienda);
-    setPlatosSeleccionados([]); // Reseteamos platos
+    setPlatosSeleccionados([]); 
     setPlatosTienda([]);
     
-    // Traemos los platos de la tienda seleccionada
     const qPlatos = query(collection(db, "platos"), where("idTienda", "==", tienda.id), where("estado", "==", "APROBADO"));
     const snap = await getDocs(qPlatos);
     setPlatosTienda(snap.docs.map(d => d.data().nombre));
@@ -76,7 +73,6 @@ export default function QualityEvaluation() {
     if (!user || !tiendaSeleccionada || !reviewText.trim()) return;
     setIsSubmitting(true);
     try {
-      // Guardamos la evaluación en la colección de comentarios igual que en Android
       await addDoc(collection(db, "comentarios"), {
         idTienda: tiendaSeleccionada.id,
         nombreTienda: tiendaSeleccionada.nombre,
@@ -89,7 +85,8 @@ export default function QualityEvaluation() {
         fecha: Date.now(),
         likes: 0,
         likedBy: [],
-        platosSugeridos: platosSeleccionados // 🔥 Platos recomendados por el Quality
+        platosSugeridos: platosSeleccionados,
+        esEvaluacion: true // 🔥 SELLO OFICIAL: Esto le avisa al sistema que es un CHAS
       });
       setIsSubmitting(false);
       navigate('/dashboard/quality');
@@ -106,7 +103,6 @@ export default function QualityEvaluation() {
   return (
     <div className="w-full max-w-2xl mx-auto bg-white min-h-screen pb-24">
       
-      {/* Header Fijo */}
       <div className="sticky top-0 bg-white z-10 flex items-center gap-4 px-5 py-4 border-b border-gray-100">
         <button onClick={() => navigate(-1)} className="p-2 hover:bg-gray-100 rounded-full cursor-pointer transition-colors">
           <ArrowLeft className="w-6 h-6 text-gray-800" />
@@ -119,7 +115,6 @@ export default function QualityEvaluation() {
 
       <div className="px-6 py-6 space-y-8 animate-fadeIn">
         
-        {/* 1. Selector de Tienda */}
         <div>
           <label className="block font-roboto font-bold text-gray-800 text-sm mb-2">Selecciona el Huarique a evaluar</label>
           <select 
@@ -137,7 +132,6 @@ export default function QualityEvaluation() {
           )}
         </div>
 
-        {/* 2. Selector de Platos */}
         {tiendaSeleccionada && (
           <div>
             <label className="block font-roboto font-bold text-gray-800 text-sm mb-2">Platos Sugeridos (Opcional)</label>
@@ -164,7 +158,6 @@ export default function QualityEvaluation() {
           </div>
         )}
 
-        {/* 3. Sliders del Método CHAS */}
         <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100">
           <label className="block font-roboto font-black text-lg text-black mb-6">Evaluación CHAS (0 a 5)</label>
           
@@ -182,7 +175,6 @@ export default function QualityEvaluation() {
           </div>
         </div>
 
-        {/* 4. Reseña Detallada */}
         <div>
           <label className="block font-roboto font-bold text-gray-800 text-sm mb-2">Tu Reseña Detallada</label>
           <textarea 
@@ -193,7 +185,6 @@ export default function QualityEvaluation() {
           />
         </div>
 
-        {/* 5. Botón Publicar */}
         <button 
           onClick={publicarEvaluacion}
           disabled={!tiendaSeleccionada || !reviewText.trim() || isSubmitting}
@@ -206,7 +197,6 @@ export default function QualityEvaluation() {
   );
 }
 
-// Componente para los sliders (Igual a la UI de Jetpack Compose)
 function ChasSlider({ label, value, setValue }: { label: string, value: number, setValue: (val: number) => void }) {
   return (
     <div className="mb-6 last:mb-0">

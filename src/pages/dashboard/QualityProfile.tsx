@@ -8,7 +8,7 @@ import { Camera, LogOut, Settings, Star, Heart, Lock, Unlock, Loader2, Wrench } 
 const DIAS_SEMANA = ["L", "M", "X", "J", "V", "S", "D"];
 
 export default function QualityProfile() {
-  const { userData, user } = useAuth();
+  const { userData, user, refreshUserData } = useAuth();
   const [selectedTab, setSelectedTab] = useState("Ajustes");
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -46,7 +46,7 @@ export default function QualityProfile() {
       });
       setMensaje("✅ Cambios guardados");
       setIsEditing(false);
-      window.location.reload();
+      await refreshUserData();
     } catch (error) {
       setMensaje("❌ Error al guardar");
     } finally {

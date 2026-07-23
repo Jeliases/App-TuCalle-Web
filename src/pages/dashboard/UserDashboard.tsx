@@ -5,7 +5,6 @@ import { Flame, Soup, Utensils, Leaf, Navigation } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BannerCarousel from "../../components/layout/BannerCarousel";
 
-// 🔥 CARRUSEL PROFESIONAL: Cero barra de scroll y cursor "Manita" 🔥
 function DraggableCarousel({ children }: { children: React.ReactNode }) {
   const sliderRef = useRef<HTMLDivElement>(null);
   let isDown = useRef(false);
@@ -45,16 +44,15 @@ function DraggableCarousel({ children }: { children: React.ReactNode }) {
   );
 }
 
-// 🔥 FÓRMULA DE HAVERSINE: Calcula la distancia en KM entre 2 coordenadas 🔥
 function calcularDistancia(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371; // Radio de la Tierra en km
+  const R = 6371; 
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
   const a = 
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c; // Devuelve la distancia en KM
+  return R * c; 
 }
 
 export default function UserDashboard() {
@@ -63,27 +61,20 @@ export default function UserDashboard() {
   const [platos, setPlatos] = useState<any[]>([]);
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
-  // 1. OBTENER DATOS Y UBICACIÓN
   useEffect(() => {
-    // Pedir GPS
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
+          setUserLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
         },
-        (error) => {
-          console.warn("GPS denegado o no disponible", error);
-        }
+        (error) => console.warn("GPS denegado o no disponible", error)
       );
     }
 
-    // Traer Firebase
     const fetchData = async () => {
       try {
-        const qTiendas = query(collection(db, "tiendas"), where("estado", "==", "APROBADO"));
+        // 🔥 OPTIMIZACIÓN 1: Límite de 50 tiendas para no saturar la red 🔥
+        const qTiendas = query(collection(db, "tiendas"), where("estado", "==", "APROBADO"), limit(50));
         const tiendasSnap = await getDocs(qTiendas);
         let tiendasData = tiendasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
@@ -100,25 +91,18 @@ export default function UserDashboard() {
     fetchData();
   }, []);
 
-  // 2. ORDENAR TIENDAS POR DISTANCIA (Si tenemos el GPS)
   const tiendasOrdenadas = [...tiendas].map(tienda => {
     if (userLocation && tienda.direccion?.latitud && tienda.direccion?.longitud) {
-      const dist = calcularDistancia(
-        userLocation.lat, userLocation.lng,
-        tienda.direccion.latitud, tienda.direccion.longitud
-      );
+      const dist = calcularDistancia(userLocation.lat, userLocation.lng, tienda.direccion.latitud, tienda.direccion.longitud);
       return { ...tienda, distanciaKm: dist };
     }
-    return { ...tienda, distanciaKm: 9999 }; // Si no hay GPS, los mandamos al fondo
-  }).sort((a, b) => a.distanciaKm - b.distanciaKm).slice(0, 10); // Solo mostramos los 10 más cercanos
+    return { ...tienda, distanciaKm: 9999 }; 
+  }).sort((a, b) => a.distanciaKm - b.distanciaKm).slice(0, 10); 
 
   return (
     <div className="w-full flex flex-col bg-white pb-24">
-      
-      {/* 1. BANNER FULL WIDTH (EDGE TO EDGE) */}
       <BannerCarousel />
 
-      {/* 2. CATEGORÍAS CIRCULARES */}
       <div className="px-5 flex justify-between mb-8 mt-6 max-w-md">
         {[
           { name: "Broaster", icon: <Flame className="w-7 h-7 text-[#D32F2F]" /> },
@@ -135,14 +119,12 @@ export default function UserDashboard() {
         ))}
       </div>
 
-      {/* 3. TÍTULO EXTENDIDO E IMPONENTE */}
       <div className="px-5 mb-8 select-none w-full">
         <h2 className="font-roboto font-black text-[26px] sm:text-[32px] lg:text-[38px] text-black leading-tight tracking-tight whitespace-nowrap">
           ¿Qué se te antoja hoy?
         </h2>
       </div>
 
-      {/* PLATOS POPULARES */}
       <Section title="Populares ahora">
         {platos.length > 0 ? (
           <DraggableCarousel>
@@ -151,7 +133,8 @@ export default function UserDashboard() {
               return (
                 <div key={plato.id} className="min-w-[180px] w-[180px] bg-white rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.06)] border border-gray-50 overflow-hidden flex flex-col pb-4 shrink-0 pointer-events-auto">
                   <div className="w-full h-[150px] relative pointer-events-none">
-                    <img src={plato.imagenUrl || "https://via.placeholder.com/160"} alt={plato.nombre} draggable={false} className="w-full h-full object-cover" />
+                    {/* 🔥 OPTIMIZACIÓN 2: Lazy Loading de Imágenes 🔥 */}
+                    <img src={plato.imagenUrl || "https://via.placeholder.com/160"} alt={plato.nombre} draggable={false} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                   </div>
                   <div className="px-3 pt-3 flex flex-col pointer-events-none">
                     <h3 className="font-poppins font-bold text-black text-base truncate">{plato.nombre}</h3>
@@ -172,7 +155,6 @@ export default function UserDashboard() {
         ) : <EmptyState text="Aún no hay platos registrados." />}
       </Section>
 
-      {/* HUARIQUES CERCA */}
       <Section title="Huariques Cerca de ti">
         {tiendasOrdenadas.length > 0 ? (
           <DraggableCarousel>
@@ -183,9 +165,9 @@ export default function UserDashboard() {
                 className="min-w-[280px] w-[280px] bg-white rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.06)] border border-gray-50 overflow-hidden pb-4 cursor-pointer hover:shadow-lg transition-shadow shrink-0 pointer-events-auto relative"
               >
                 <div className="w-full h-[150px] pointer-events-none relative">
-                  <img src={tienda.portadaUrl || "https://via.placeholder.com/280x140"} alt={tienda.nombre} draggable={false} className="w-full h-full object-cover" />
+                  {/* 🔥 OPTIMIZACIÓN 2: Lazy Loading de Imágenes 🔥 */}
+                  <img src={tienda.portadaUrl || "https://via.placeholder.com/280x140"} alt={tienda.nombre} draggable={false} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                   
-                  {/* 🔥 ETIQUETA DE DISTANCIA FLOTANTE 🔥 */}
                   {tienda.distanciaKm < 9999 && (
                     <div className="absolute top-3 left-3 bg-white/95 px-2.5 py-1 rounded-full shadow-sm flex items-center gap-1">
                       <Navigation className="w-3.5 h-3.5 text-[#D32F2F]" />
@@ -214,15 +196,14 @@ export default function UserDashboard() {
         ) : <EmptyState text="Aún no hay huariques registrados cerca de ti." />}
       </Section>
 
-      {/* RECOMENDADOS */}
       {tiendasOrdenadas.length > 0 && (
         <Section title="Los más recomendados" noSeeAll>
           <DraggableCarousel>
-            {/* Aquí ordenamos por pura calificación, sin importar si están lejos */}
             {[...tiendas].sort((a, b) => (b.calificacionGeneral || 0) - (a.calificacionGeneral || 0)).slice(0, 8).map((tienda) => (
               <div key={tienda.id} onClick={() => navigate(`/dashboard/tienda/${tienda.id}`)} className="flex flex-col items-center gap-2 w-[80px] shrink-0 cursor-pointer pointer-events-auto">
                 <div className="w-[74px] h-[74px] rounded-full bg-gray-200 overflow-hidden shadow-sm pointer-events-none border-2 border-white">
-                  <img src={tienda.logoUrl || tienda.portadaUrl || "https://via.placeholder.com/74"} alt={tienda.nombre} draggable={false} className="w-full h-full object-cover" />
+                  {/* 🔥 OPTIMIZACIÓN 2: Lazy Loading de Imágenes 🔥 */}
+                  <img src={tienda.logoUrl || tienda.portadaUrl || "https://via.placeholder.com/74"} alt={tienda.nombre} draggable={false} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                 </div>
                 <span className="text-[11px] font-poppins font-medium text-gray-600 text-center truncate w-full pointer-events-none">{tienda.nombre}</span>
               </div>
@@ -231,13 +212,13 @@ export default function UserDashboard() {
         </Section>
       )}
 
-      {/* PORQUE LO BUENO SE REPITE */}
       {tiendas.length > 0 && (
         <Section title="Porque lo bueno se repite" noSeeAll>
           <DraggableCarousel>
             {tiendas.slice().reverse().slice(0, 5).map((tienda) => (
               <div key={tienda.id} onClick={() => navigate(`/dashboard/tienda/${tienda.id}`)} className="min-w-[280px] w-[280px] h-[200px] bg-white rounded-[20px] shadow-[0_4px_12px_rgba(0,0,0,0.06)] border border-gray-50 overflow-hidden flex flex-col cursor-pointer shrink-0 pointer-events-auto">
-                <img src={tienda.portadaUrl || "https://via.placeholder.com/280"} draggable={false} className="w-full h-[65%] object-cover pointer-events-none" alt="" />
+                {/* 🔥 OPTIMIZACIÓN 2: Lazy Loading de Imágenes 🔥 */}
+                <img src={tienda.portadaUrl || "https://via.placeholder.com/280"} draggable={false} loading="lazy" decoding="async" className="w-full h-[65%] object-cover pointer-events-none" alt="" />
                 <div className="px-4 h-[35%] flex flex-col justify-center pointer-events-none bg-white">
                   <span className="font-poppins font-bold text-black text-base truncate">{tienda.nombre}</span>
                   <span className="font-poppins text-xs text-gray-500 mt-0.5">Visitar de nuevo</span>

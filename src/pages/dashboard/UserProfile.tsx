@@ -6,7 +6,7 @@ import { doc, updateDoc } from "firebase/firestore";
 import { Camera, LogOut, Settings, Heart, ShoppingBag, Lock, Unlock, Loader2 } from "lucide-react";
 
 export default function UserProfile() {
-  const { userData, user } = useAuth();
+  const { userData, user, refreshUserData } = useAuth();
   const [selectedTab, setSelectedTab] = useState("Ajustes");
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -47,7 +47,7 @@ export default function UserProfile() {
       await updateDoc(userRef, formData);
       setMensaje("✅ Cambios guardados");
       setIsEditing(false);
-      window.location.reload(); // Recarga para actualizar el Navbar
+      await refreshUserData();// Recarga para actualizar el Navbar
     } catch (error) {
       setMensaje("Error al guardar cambios");
     } finally {

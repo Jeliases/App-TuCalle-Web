@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, limit } from "firebase/firestore";
 import { db } from "../../api/firebaseConfig";
 import { Search, Flame, Soup, Utensils, Leaf, ClipboardSignature } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -44,12 +44,13 @@ export default function QualityDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const qTiendas = query(collection(db, "tiendas"), where("estado", "==", "APROBADO"));
+        // 🔥 Limpiado: Ahora usamos limit(50) y limit(10) igual que el usuario
+        const qTiendas = query(collection(db, "tiendas"), where("estado", "==", "APROBADO"), limit(50));
         const tiendasSnap = await getDocs(qTiendas);
         const tiendasData = tiendasSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setTiendas(tiendasData.sort((a: any, b: any) => (b.calificacionGeneral || 0) - (a.calificacionGeneral || 0)));
 
-        const qPlatos = query(collection(db, "platos"), where("estado", "==", "APROBADO"));
+        const qPlatos = query(collection(db, "platos"), where("estado", "==", "APROBADO"), limit(10));
         const platosSnap = await getDocs(qPlatos);
         const platosData = platosSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setPlatos(platosData.sort((a: any, b: any) => (b.calificacionPlato || 0) - (a.calificacionPlato || 0)));
@@ -124,7 +125,8 @@ export default function QualityDashboard() {
               return (
                 <div key={plato.id} className="min-w-[160px] w-[160px] bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.08)] border border-gray-50 overflow-hidden flex flex-col pb-3 shrink-0 pointer-events-auto">
                   <div className="w-full h-[140px] relative pointer-events-none">
-                    <img src={plato.imagenUrl || "https://via.placeholder.com/160"} alt={plato.nombre} draggable={false} className="w-full h-full object-cover" />
+                    {/* 🔥 OPTIMIZACIÓN 2: Lazy Loading 🔥 */}
+                    <img src={plato.imagenUrl || "https://via.placeholder.com/160"} alt={plato.nombre} draggable={false} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                   </div>
                   <div className="px-3 pt-3 flex flex-col pointer-events-none">
                     <h3 className="font-roboto font-bold text-black text-base truncate">{plato.nombre}</h3>
@@ -157,7 +159,8 @@ export default function QualityDashboard() {
                 className="min-w-[280px] w-[280px] bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.08)] border border-gray-50 overflow-hidden pb-3 shrink-0 cursor-pointer hover:shadow-md transition-shadow pointer-events-auto"
               >
                 <div className="w-full h-[140px] pointer-events-none">
-                  <img src={tienda.portadaUrl || "https://via.placeholder.com/280x140"} alt={tienda.nombre} draggable={false} className="w-full h-full object-cover" />
+                  {/* 🔥 OPTIMIZACIÓN 2: Lazy Loading 🔥 */}
+                  <img src={tienda.portadaUrl || "https://via.placeholder.com/280x140"} alt={tienda.nombre} draggable={false} loading="lazy" decoding="async" className="w-full h-full object-cover" />
                 </div>
                 <div className="px-3 pt-3 flex flex-col pointer-events-none">
                   <div className="flex justify-between items-center">

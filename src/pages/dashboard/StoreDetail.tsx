@@ -1,26 +1,23 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { doc, getDoc, collection, query, where, onSnapshot, addDoc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import { doc, getDoc, collection, query, where, onSnapshot, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { db } from "../../api/firebaseConfig";
 import { useAuth } from "../../context/AuthContext";
-import { ArrowLeft, MapPin, Clock, Bookmark, Heart, Star, Phone, Menu, Send, Loader2, MessageCircle } from "lucide-react";
+import { ArrowLeft, MapPin, Clock, Bookmark, Heart, Star, Phone, Menu, Loader2, MessageCircle } from "lucide-react";
+// 🔥 Importamos tu nuevo componente 🔥
+import StoreComments from "../../components/layout/StoreComments";
 
 export default function StoreDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user, userData, role } = useAuth();
+  const { user, role } = useAuth();
 
   const [store, setStore] = useState<any>(null);
   const [platos, setPlatos] = useState<any[]>([]);
-  const [comentarios, setComentarios] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isGuardado, setIsGuardado] = useState(false);
-
   const [filtroSeleccionado, setFiltroSeleccionado] = useState("Destacados");
-  const [comentarioText, setComentarioText] = useState("");
-  const [isSending, setIsSending] = useState(false);
 
-  // 🔥 1. FORZAR SCROLL ARRIBA AL MONTAR LA PANTALLA
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -34,18 +31,12 @@ export default function StoreDetail() {
       if (docSnap.exists()) {
         setStore({ id: docSnap.id, ...docSnap.data() });
       }
+      setIsLoading(false);
     };
 
     const qPlatos = query(collection(db, "platos"), where("idTienda", "==", id), where("estado", "==", "APROBADO"));
     const unsubPlatos = onSnapshot(qPlatos, (snapshot) => {
       setPlatos(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
-    const qComentarios = query(collection(db, "comentarios"), where("idTienda", "==", id));
-    const unsubComentarios = onSnapshot(qComentarios, (snapshot) => {
-      const coms = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      setComentarios(coms.sort((a: any, b: any) => b.fecha - a.fecha));
-      setIsLoading(false);
     });
 
     let unsubQuality = () => {};
@@ -60,10 +51,8 @@ export default function StoreDetail() {
 
     fetchStore();
 
-    // 🔥 LIMPIEZA DE CONEXIONES PARA EVITAR LENTITUD
     return () => {
       unsubPlatos();
-      unsubComentarios();
       unsubQuality();
     };
   }, [id, role, user]);
@@ -79,47 +68,6 @@ export default function StoreDetail() {
     }
   };
 
-  const enviarComentario = async () => {
-    if (!comentarioText.trim() || !user?.uid || !store) return;
-    setIsSending(true);
-    try {
-      await addDoc(collection(db, "comentarios"), {
-        idTienda: store.id,
-        nombreTienda: store.nombre,
-        idUsuario: user.uid,
-        nombreUsuario: userData?.nombre || "Usuario",
-        fotoUsuario: userData?.fotoUrl || "",
-        rolUsuario: role || "USUARIO",
-        texto: comentarioText,
-        calificacion: 5.0, // Solo para usuarios normales
-        fecha: Date.now(),
-        likes: 0,
-        likedBy: [],
-        platosSugeridos: []
-      });
-      setComentarioText("");
-    } catch (error) {
-      console.error("Error enviando comentario:", error);
-    }
-    setIsSending(false);
-  };
-
-  const toggleLike = async (idComentario: string, likesActuales: number, likedBy: string[]) => {
-    if (!user?.uid) return;
-    const ref = doc(db, "comentarios", idComentario);
-    const hasLiked = likedBy.includes(user.uid);
-    if (hasLiked) {
-      await updateDoc(ref, { likedBy: arrayRemove(user.uid), likes: likesActuales - 1 });
-    } else {
-      await updateDoc(ref, { likedBy: arrayUnion(user.uid), likes: likesActuales + 1 });
-    }
-  };
-
-  const formatearFecha = (fechaMs: number) => {
-    return new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(fechaMs));
-  };
-
-  // 🔥 BACK CON DESTINO FIJO SEGÚN ROL (navigate(-1) rompía el historial)
   const volverAlDashboard = () => {
     navigate(role === "QUALITY" ? "/dashboard/quality" : "/dashboard/usuario");
   };
@@ -135,7 +83,6 @@ export default function StoreDetail() {
   return (
     <div className="w-full bg-white min-h-screen pb-24 font-poppins">
       
-      {/* 🔥 HEADER PEGAJOSO (STICKY) CON BOTÓN ATRÁS */}
       <div className="sticky top-0 z-50 bg-white flex justify-between items-center px-5 py-3 shadow-sm border-b border-gray-100">
         <div className="flex items-center gap-3">
           <button onClick={volverAlDashboard} className="p-2 rounded-full hover:bg-gray-100 cursor-pointer transition-colors">
@@ -192,7 +139,6 @@ export default function StoreDetail() {
           ))}
         </div>
 
-        {/* 🔥 BOTONES DE CONTACTO ACTUALIZADOS (Icono + Número) */}
         <div className="flex gap-3 mt-6">
           <button 
             onClick={() => window.open(`https://wa.me/51${store.whatsapp}`, '_blank')}
@@ -275,101 +221,9 @@ export default function StoreDetail() {
       
       <div className="w-full h-2 bg-gray-50 my-2"></div>
 
-      <div className="px-5 pt-4">
-        <h2 className="font-roboto font-bold text-[20px] text-black mb-1">Comentarios</h2>
-        
-        {/* 🔥 RESTRICCIÓN DE COMENTARIOS PARA QUALITY */}
-        {role === "QUALITY" ? (
-          <div className="mt-4 bg-red-50 border border-red-100 p-5 rounded-xl text-center">
-            <Star className="w-8 h-8 text-[#D32F2F] mx-auto mb-2 opacity-80" />
-            <p className="text-[13px] text-gray-700 font-medium leading-relaxed">
-              Como <span className="font-bold text-[#D32F2F]">Auditor Quality</span>, tus evaluaciones tienen un impacto mayor.
-            </p>
-            <button 
-              onClick={() => navigate("/dashboard/calificar/nueva")} 
-              className="mt-3 px-6 py-2 bg-[#D32F2F] text-white font-bold text-sm rounded-full shadow-sm hover:bg-[#b72424] transition-colors"
-            >
-              Realizar Evaluación CHAS
-            </button>
-          </div>
-        ) : (
-          <>
-            <p className="text-[13px] text-gray-500 mb-3">Cuéntanos qué te pareció</p>
-            <div className="relative w-full">
-              <input 
-                type="text"
-                value={comentarioText}
-                onChange={(e) => setComentarioText(e.target.value)}
-                placeholder="Escribe algo increíble..."
-                className="w-full h-[50px] bg-gray-50 border border-transparent focus:bg-white focus:border-[#D32F2F] rounded-xl px-4 pr-12 outline-none text-[13px] transition-colors"
-                onKeyDown={(e) => e.key === 'Enter' && enviarComentario()}
-              />
-              <button 
-                onClick={enviarComentario} 
-                disabled={isSending || !comentarioText.trim()} 
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 cursor-pointer disabled:opacity-50 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                {isSending ? <Loader2 className="w-4 h-4 animate-spin text-[#D32F2F]" /> : <Send className={`w-4 h-4 ${comentarioText.trim() ? 'text-[#D32F2F]' : 'text-gray-400'}`} />}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-
-      <div className="mt-6">
-        {comentarios.length === 0 ? (
-          <p className="px-5 text-[13px] text-gray-500 text-center py-4 bg-gray-50 mx-5 rounded-xl">No hay comentarios aún. ¡Sé el primero!</p>
-        ) : (
-          comentarios.map(comentario => {
-            const isLiked = comentario.likedBy?.includes(user?.uid || "");
-            return (
-              <div key={comentario.id} className="px-5 py-4 border-b border-gray-100 last:border-0">
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center gap-3">
-                    <img src={comentario.fotoUsuario || `https://ui-avatars.com/api/?name=${comentario.nombreUsuario}&background=D32F2F&color=fff`} alt="Avatar" className="w-10 h-10 rounded-full object-cover bg-gray-200 border border-gray-100" />
-                    <div>
-                      <h4 className="font-roboto font-bold text-[14px] text-black">{comentario.nombreUsuario}</h4>
-                      {comentario.rolUsuario === "QUALITY" && (
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="bg-red-50 text-[#D32F2F] text-[9px] font-bold px-1.5 py-0.5 rounded">QUALITY</span>
-                          <span className="text-[10px]">🎁 2025 🏅</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <span className="text-[10px] text-gray-400">{formatearFecha(comentario.fecha)}</span>
-                  </div>
-                </div>
-                
-                <p className="mt-3 text-[13px] text-gray-700 leading-relaxed pr-2">{comentario.texto}</p>
-                
-                {comentario.rolUsuario === "QUALITY" && comentario.platosSugeridos?.length > 0 && (
-                  <div className="mt-2 text-[12px] bg-gray-50 p-2 rounded-lg inline-block">
-                    <span className="font-bold text-gray-800">Sugerencias: </span>
-                    <span className="text-gray-600">{comentario.platosSugeridos.join(", ")}</span>
-                  </div>
-                )}
-                
-                <div className="flex justify-between items-center mt-3 pt-2">
-                  <div className="flex items-center gap-1">
-                    {comentario.rolUsuario === "QUALITY" && (
-                      <div className="flex items-center gap-1 bg-yellow-50 px-2 py-0.5 rounded-full">
-                        <Star className="w-3.5 h-3.5 text-[#FFC107] fill-current" />
-                        <span className="font-roboto font-bold text-[12px] text-gray-700">{comentario.calificacion?.toFixed(1) || "5.0"}</span>
-                      </div>
-                    )}
-                  </div>
-                  <button onClick={() => toggleLike(comentario.id, comentario.likes || 0, comentario.likedBy || [])} className="flex items-center gap-1.5 px-2 py-1 cursor-pointer hover:bg-gray-50 rounded-full transition-colors">
-                    <span className={`font-poppins font-medium text-[12px] ${isLiked ? 'text-[#D32F2F]' : 'text-gray-400'}`}>{comentario.likes || 0}</span>
-                    <Heart className={`w-4 h-4 ${isLiked ? 'text-[#D32F2F] fill-current' : 'text-gray-400'}`} />
-                  </button>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
+      {/* 🔥 AHORA SOLO LLAMAMOS AL COMPONENTE 🔥 */}
+      <StoreComments storeId={store.id} storeNombre={store.nombre} />
+      
     </div>
   );
 }
