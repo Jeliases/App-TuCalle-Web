@@ -5,8 +5,6 @@ import { auth } from "../../api/firebaseConfig";
 import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { getNavItems } from "./navConfig";
-
-// Importamos el motor del GPS
 import { useUserLocation } from "../../hooks/useUserLocation";
 
 interface NavbarProps {
@@ -14,9 +12,7 @@ interface NavbarProps {
 }
 
 export default function Navbar({ onMenuClick }: NavbarProps) {
-  // 🔥 El Hook hace todo el trabajo pesado del GPS por detrás
   const { address, error } = useUserLocation();
-  
   const { userData, role } = useAuth();
   const navigate = useNavigate();
   
@@ -69,9 +65,9 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
 
       {/* ── NAVBAR PRINCIPAL SUPERIOR ── */}
       <nav className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="h-16 flex items-center justify-between px-4 sm:px-8">
+        <div className="h-16 flex items-center justify-between px-3 sm:px-8">
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1 sm:gap-4">
             <button 
               onClick={() => {
                 setIsMenuOpen(true);
@@ -82,14 +78,15 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
               <Menu className="w-6 h-6" />
             </button>
             
+            {/* Solo se muestra en pantallas medianas o más grandes */}
             <div className="font-roboto font-bold text-xl tracking-wide cursor-pointer hidden sm:block" onClick={() => navigate('/')}>
               <span className="text-black">Tu</span><span className="text-[#D32F2F]">Calle</span>
             </div>
             
-            {/* 🔥 UBICACIÓN DINÁMICA (Conectada al Hook) 🔥 */}
-            <div className="hidden md:flex items-center gap-1 text-[#D32F2F] ml-4 cursor-pointer hover:bg-red-50 px-2 py-1 rounded-md transition-colors">
+            {/* 🔥 UBICACIÓN VISIBLE EN CELULARES 🔥 */}
+            <div className="flex items-center gap-1 text-[#D32F2F] ml-1 sm:ml-4 cursor-pointer hover:bg-red-50 px-1.5 py-1 rounded-md transition-colors">
               <MapPin className="w-4 h-4 shrink-0" />
-              <span className="text-[13px] font-medium font-poppins truncate max-w-[280px]">
+              <span className="text-[13px] font-medium font-poppins truncate max-w-[130px] sm:max-w-[280px]">
                 {error ? error : (address || "Ubicando...")}
               </span>
               <ChevronDown className="w-4 h-4 shrink-0" />
@@ -109,7 +106,7 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 relative">
+          <div className="flex items-center gap-2 sm:gap-3 relative">
             <button className="relative p-2 rounded-full hover:bg-gray-100 cursor-pointer transition-colors">
               <Bell className="w-5 h-5 text-gray-700" />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#D32F2F] rounded-full border border-white"></span>
